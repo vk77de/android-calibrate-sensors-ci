@@ -1,4 +1,4 @@
-﻿plugins {
+plugins {
     id 'com.android.application'
     id 'org.jetbrains.kotlin.android'
     // 1. Added to register the linting tasks for your CI pipeline
