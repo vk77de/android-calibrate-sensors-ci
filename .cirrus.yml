@@ -1,0 +1,5 @@
+macos_instance:
+  image: ghcr.io/cirruslabs/macos-ventura-xcode:15-beta
+task:
+  build_script: make build
+  test_script: make unit-test
