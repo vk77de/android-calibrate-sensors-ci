@@ -1,4 +1,4 @@
-﻿name: Android Hello World CI
+﻿name: Android Calibrate Sensors CI
 
 on:
   push:
@@ -28,18 +28,22 @@ jobs:
     - name: Grant Execute Permission to Gradlew
       run: chmod +x ./gradlew
 
-    # Step 4: Run the Gradle task to compile a debug Android application
+    # Step 4: Run Lint Checks to ensure code formatting matches rules before compilation
+    - name: Run Kotlin Lint Check
+      run: ./gradlew ktlintCheck
+
+    # Step 5: Run the Gradle task to compile a debug Android application
     - name: Build Debug APK
       run: ./gradlew assembleDebug
 
-    # Step 4.5: Calculate the true cryptographic hash of the raw APK file
+    # Step 6: Calculate the true cryptographic hash of the raw APK file
     - name: Calculate APK SHA256
       run: sha256sum app/build/outputs/apk/debug/app-debug.apk
 
-    # Step 5: Extract the compiled file from the VM so you can download it
+    # Step 7: Extract the compiled file from the VM so you can download it
     - name: Upload Compiled APK Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: hello-world-apk
+        name: calibrate-sensors-apk
         path: app/build/outputs/apk/debug/app-debug.apk
         retention-days: 3 # Automatically cleans up storage after 3 days
