@@ -1,4 +1,4 @@
-﻿import android.hardware.Sensor
+import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
@@ -18,14 +18,14 @@ class CelestialCalibrator : SensorEventListener {
     }
 
     /**
-     * Call this exact method when the user aligns a known object 
+     * Call this exact method when the user aligns a known object
      * (e.g. Jupiter) perfectly in the center crosshair of the camera view.
      * @param trueAzimuth In degrees from North (0 to 360)
      * @param trueAltitude In degrees from Horizon (-90 to 90)
      */
     fun performCelestialCalibration(trueAzimuth: Float, trueAltitude: Float) {
         val trueRotationMatrix = FloatArray(16)
-        
+
         // Convert the mathematically calculated real-world coordinates into a target matrix
         Matrix.setIdentityM(trueRotationMatrix, 0)
         Matrix.rotateM(trueRotationMatrix, 0, -trueAzimuth, 0f, 1f, 0f)  // Y-axis rotation
@@ -58,3 +58,4 @@ class CelestialCalibrator : SensorEventListener {
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
 }
+
