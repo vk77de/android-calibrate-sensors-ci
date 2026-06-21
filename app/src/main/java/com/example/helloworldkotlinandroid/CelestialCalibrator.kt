@@ -24,13 +24,16 @@ class CelestialCalibrator : SensorEventListener {
      * @param trueAzimuth In degrees from North (0 to 360)
      * @param trueAltitude In degrees from Horizon (-90 to 90)
      */
-    fun performCelestialCalibration(trueAzimuth: Float, trueAltitude: Float) {
+    fun performCelestialCalibration(
+        trueAzimuth: Float,
+        trueAltitude: Float,
+    ) {
         val trueRotationMatrix = FloatArray(16)
 
         // Convert the mathematically calculated real-world coordinates into a target matrix
         Matrix.setIdentityM(trueRotationMatrix, 0)
-        Matrix.rotateM(trueRotationMatrix, 0, -trueAzimuth, 0f, 1f, 0f)  // Y-axis rotation
-        Matrix.rotateM(trueRotationMatrix, 0, trueAltitude, 1f, 0f, 0f)  // X-axis rotation
+        Matrix.rotateM(trueRotationMatrix, 0, -trueAzimuth, 0f, 1f, 0f) // Y-axis rotation
+        Matrix.rotateM(trueRotationMatrix, 0, trueAltitude, 1f, 0f, 0f) // X-axis rotation
 
         // Invert the current inaccurate sensor matrix
         val invertedSensorMatrix = FloatArray(16)
@@ -57,6 +60,8 @@ class CelestialCalibrator : SensorEventListener {
         }
     }
 
-    override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
+    override fun onAccuracyChanged(
+        sensor: Sensor?,
+        accuracy: Int,
+    ) {}
 }
-
