@@ -74,7 +74,7 @@ class MainActivity : AppCompatActivity() {
 
             try {
                 cameraProvider.unbindAll()
-                
+
                 // Fixed: Each argument is placed on a separate line with a trailing comma
                 cameraProvider.bindToLifecycle(
                     this,
