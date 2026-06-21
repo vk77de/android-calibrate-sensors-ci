@@ -1,3 +1,5 @@
+package com.example.helloworldkotlinandroid
+
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
@@ -5,7 +7,6 @@ import android.hardware.SensorManager
 import android.opengl.Matrix
 
 class CelestialCalibrator : SensorEventListener {
-
     // Matrices stored as 16-element 4x4 flat arrays for OpenGL compatibility
     private val rawSensorMatrix = FloatArray(16)
     private val calibrationOffsetMatrix = FloatArray(16)
