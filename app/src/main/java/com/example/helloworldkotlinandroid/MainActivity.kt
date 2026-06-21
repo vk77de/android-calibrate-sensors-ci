@@ -1,4 +1,4 @@
-﻿package com.example.helloworldkotlinandroid
+package com.example.helloworldkotlinandroid
 
 import android.Manifest
 import android.content.Context
