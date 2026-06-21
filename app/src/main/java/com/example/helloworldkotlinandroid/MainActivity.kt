@@ -1,7 +1,10 @@
-package com.example.helloworldkotlinandroid
+﻿package com.example.helloworldkotlinandroid
 
 import android.Manifest
+import android.content.Context
 import android.content.pm.PackageManager
+import android.hardware.Sensor
+import android.hardware.SensorManager
 import android.os.Bundle
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -18,13 +21,27 @@ class MainActivity : AppCompatActivity() {
     private lateinit var viewFinder: PreviewView
     private lateinit var cameraExecutor: ExecutorService
 
+    // Step 1: Declare Sensor Framework Properties
+    private lateinit var sensorManager: SensorManager
+    private var rotationVectorSensor: Sensor? = null
+    private lateinit var celestialCalibrator: CelestialCalibrator
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
         setContentView(R.layout.activity_main)
 
         viewFinder = findViewById(R.id.viewFinder)
         cameraExecutor = Executors.newSingleThreadExecutor()
+
+        // Step 1: Initialize the Android Sensor Manager and Calibrator
+        sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
+        rotationVectorSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
+        celestialCalibrator = CelestialCalibrator()
+
+        // Alert the user if their device is missing the required hardware sensor fusion
+        if (rotationVectorSensor == null) {
+            Toast.makeText(this, "Rotation Vector Sensor missing on this hardware!", Toast.LENGTH_LONG).show()
+        }
 
         // Check and request runtime permissions required by Android 14
         if (allPermissionsGranted()) {
@@ -42,30 +59,20 @@ class MainActivity : AppCompatActivity() {
         val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
 
         cameraProviderFuture.addListener({
-            // Bind the camera lifecycle to the LifecycleOwner of the activity
             val cameraProvider: ProcessCameraProvider = cameraProviderFuture.get()
 
-            // Initialize Preview use-case
-            val preview =
-                Preview
-                    .Builder()
-                    .build()
-                    .also {
-                        it.setSurfaceProvider(viewFinder.surfaceProvider)
-                    }
+            val preview = Preview.Builder()
+                .build()
+                .also {
+                    it.setSurfaceProvider(viewFinder.surfaceProvider)
+                }
 
-            // Force selection of the Rear Camera
             val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
 
             try {
-                // Clear any lingering bindings before rebinding
                 cameraProvider.unbindAll()
-
-                // Bind use cases to camera
                 cameraProvider.bindToLifecycle(
-                    this,
-                    cameraSelector,
-                    preview,
+                    this, cameraSelector, preview
                 )
             } catch (exc: Exception) {
                 Toast.makeText(this, "Failed to bind camera use cases.", Toast.LENGTH_SHORT).show()
