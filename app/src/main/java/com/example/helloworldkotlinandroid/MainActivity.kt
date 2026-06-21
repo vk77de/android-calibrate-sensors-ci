@@ -1,4 +1,4 @@
-package com.example.helloworldkotlinandroid
+﻿package com.example.helloworldkotlinandroid
 
 import android.Manifest
 import android.content.Context
@@ -61,18 +61,25 @@ class MainActivity : AppCompatActivity() {
         cameraProviderFuture.addListener({
             val cameraProvider: ProcessCameraProvider = cameraProviderFuture.get()
 
-            val preview = Preview.Builder()
-                .build()
-                .also {
-                    it.setSurfaceProvider(viewFinder.surfaceProvider)
-                }
+            // Fixed: Multiline expression now correctly begins on a new line
+            val preview =
+                Preview
+                    .Builder()
+                    .build()
+                    .also {
+                        it.setSurfaceProvider(viewFinder.surfaceProvider)
+                    }
 
             val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
 
             try {
                 cameraProvider.unbindAll()
+                
+                // Fixed: Each argument is placed on a separate line with a trailing comma
                 cameraProvider.bindToLifecycle(
-                    this, cameraSelector, preview
+                    this,
+                    cameraSelector,
+                    preview,
                 )
             } catch (exc: Exception) {
                 Toast.makeText(this, "Failed to bind camera use cases.", Toast.LENGTH_SHORT).show()
