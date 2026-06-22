@@ -1,4 +1,4 @@
-﻿package com.example.helloworldkotlinandroid
+package com.example.helloworldkotlinandroid
 
 import android.Manifest
 import android.content.Context
@@ -21,7 +21,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var viewFinder: PreviewView
     private lateinit var cameraExecutor: ExecutorService
 
-    // Step 1: Declare Sensor Framework Properties
     private lateinit var sensorManager: SensorManager
     private var rotationVectorSensor: Sensor? = null
     private lateinit var celestialCalibrator: CelestialCalibrator
@@ -33,17 +32,14 @@ class MainActivity : AppCompatActivity() {
         viewFinder = findViewById(R.id.viewFinder)
         cameraExecutor = Executors.newSingleThreadExecutor()
 
-        // Step 1: Initialize the Android Sensor Manager and Calibrator
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
         rotationVectorSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
         celestialCalibrator = CelestialCalibrator()
 
-        // Alert the user if their device is missing the required hardware sensor fusion
         if (rotationVectorSensor == null) {
             Toast.makeText(this, "Rotation Vector Sensor missing on this hardware!", Toast.LENGTH_LONG).show()
         }
 
-        // Check and request runtime permissions required by Android 14
         if (allPermissionsGranted()) {
             startCamera()
         } else {
@@ -55,16 +51,32 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    // Step 2: Register sensor listeners when screen becomes active
+    override fun onResume() {
+        super.onResume()
+        rotationVectorSensor?.let {
+            sensorManager.registerListener(
+                celestialCalibrator,
+                it,
+                SensorManager.SENSOR_DELAY_UI,
+            )
+        }
+    }
+
+    // Step 2: Unregister sensor listeners to protect battery health when paused
+    override fun onPause() {
+        super.onPause()
+        sensorManager.unregisterListener(celestialCalibrator)
+    }
+
     private fun startCamera() {
         val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
 
         cameraProviderFuture.addListener({
             val cameraProvider: ProcessCameraProvider = cameraProviderFuture.get()
 
-            // Fixed: Multiline expression now correctly begins on a new line
             val preview =
-                Preview
-                    .Builder()
+                Preview.Builder()
                     .build()
                     .also {
                         it.setSurfaceProvider(viewFinder.surfaceProvider)
@@ -74,8 +86,6 @@ class MainActivity : AppCompatActivity() {
 
             try {
                 cameraProvider.unbindAll()
-
-                // Fixed: Each argument is placed on a separate line with a trailing comma
                 cameraProvider.bindToLifecycle(
                     this,
                     cameraSelector,
