@@ -40,6 +40,21 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, "Rotation Vector Sensor missing on this hardware!", Toast.LENGTH_LONG).show()
         }
 
+        // Step 3: Set up interactive screen-tap trigger for calibration computation
+        viewFinder.setOnClickListener {
+            // Hardcoded reference targets for validation (e.g., Target due South, 45 deg above horizon)
+            val testTargetAzimuth = 180.0f
+            val testTargetAltitude = 45.0f
+
+            celestialCalibrator.performCelestialCalibration(testTargetAzimuth, testTargetAltitude)
+
+            Toast.makeText(
+                this,
+                "System calibrated! Alignment offset matrix corrected.",
+                Toast.LENGTH_SHORT,
+            ).show()
+        }
+
         if (allPermissionsGranted()) {
             startCamera()
         } else {
@@ -51,7 +66,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // Step 2: Register sensor listeners when screen becomes active
     override fun onResume() {
         super.onResume()
         rotationVectorSensor?.let {
@@ -63,7 +77,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // Step 2: Unregister sensor listeners to protect battery health when paused
     override fun onPause() {
         super.onPause()
         sensorManager.unregisterListener(celestialCalibrator)
