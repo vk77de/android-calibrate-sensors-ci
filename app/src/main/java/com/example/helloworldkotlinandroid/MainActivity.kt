@@ -40,9 +40,7 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, "Rotation Vector Sensor missing on this hardware!", Toast.LENGTH_LONG).show()
         }
 
-        // Step 3: Set up interactive screen-tap trigger for calibration computation
         viewFinder.setOnClickListener {
-            // Hardcoded reference targets for validation (e.g., Target due South, 45 deg above horizon)
             val testTargetAzimuth = 180.0f
             val testTargetAltitude = 45.0f
 
@@ -125,7 +123,11 @@ class MainActivity : AppCompatActivity() {
             if (allPermissionsGranted()) {
                 startCamera()
             } else {
-                Toast.makeText(this, "Camera permissions are required to show a preview.", Toast.LENGTH_SHORT).show()
+                Toast.makeText(
+                    this,
+                    "Camera and Location permissions are required for celestial tracking.",
+                    Toast.LENGTH_SHORT,
+                ).show()
                 finish()
             }
         }
@@ -138,6 +140,10 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         private const val REQUEST_CODE_PERMISSIONS = 10
-        private val REQUIRED_PERMISSIONS = arrayOf(Manifest.permission.CAMERA)
+        private val REQUIRED_PERMISSIONS =
+            arrayOf(
+                Manifest.permission.CAMERA,
+                Manifest.permission.ACCESS_FINE_LOCATION,
+            )
     }
 }
