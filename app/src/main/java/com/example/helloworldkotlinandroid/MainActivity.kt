@@ -5,6 +5,9 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.hardware.Sensor
 import android.hardware.SensorManager
+import android.location.Location
+import android.location.LocationListener
+import android.location.LocationManager
 import android.os.Bundle
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -17,13 +20,17 @@ import androidx.core.content.ContextCompat
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : AppCompatActivity(), LocationListener {
     private lateinit var viewFinder: PreviewView
     private lateinit var cameraExecutor: ExecutorService
 
     private lateinit var sensorManager: SensorManager
     private var rotationVectorSensor: Sensor? = null
     private lateinit var celestialCalibrator: CelestialCalibrator
+
+    private lateinit var locationManager: LocationManager
+    private var deviceLatitude: Double = 0.0
+    private var deviceLongitude: Double = 0.0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -35,6 +42,8 @@ class MainActivity : AppCompatActivity() {
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
         rotationVectorSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
         celestialCalibrator = CelestialCalibrator()
+
+        locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
 
         if (rotationVectorSensor == null) {
             Toast.makeText(this, "Rotation Vector Sensor missing on this hardware!", Toast.LENGTH_LONG).show()
@@ -55,6 +64,7 @@ class MainActivity : AppCompatActivity() {
 
         if (allPermissionsGranted()) {
             startCamera()
+            setupLocationUpdates()
         } else {
             ActivityCompat.requestPermissions(
                 this,
@@ -63,6 +73,40 @@ class MainActivity : AppCompatActivity() {
             )
         }
     }
+
+    private fun setupLocationUpdates() {
+        try {
+            if (ContextCompat.checkSelfPermission(
+                    this,
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                ) == PackageManager.PERMISSION_GRANTED
+            ) {
+                // Request updates from both GPS and Network sources for reliability
+                locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 5000L, 5f, this)
+                locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 5000L, 5f, this)
+
+                val lastKnownGps = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER)
+                val lastKnownNetwork = locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
+                val bestLocation = lastKnownGps ?: lastKnownNetwork
+
+                bestLocation?.let {
+                    deviceLatitude = it.latitude
+                    deviceLongitude = it.longitude
+                }
+            }
+        } catch (e: SecurityException) {
+            Toast.makeText(this, "Location access tracing security failure.", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    override fun onLocationChanged(location: Location) {
+        deviceLatitude = location.latitude
+        deviceLongitude = location.longitude
+    }
+
+    override fun onProviderEnabled(provider: String) {}
+
+    override fun onProviderDisabled(provider: String) {}
 
     override fun onResume() {
         super.onResume()
@@ -73,11 +117,15 @@ class MainActivity : AppCompatActivity() {
                 SensorManager.SENSOR_DELAY_UI,
             )
         }
+        if (allPermissionsGranted()) {
+            setupLocationUpdates()
+        }
     }
 
     override fun onPause() {
         super.onPause()
         sensorManager.unregisterListener(celestialCalibrator)
+        locationManager.removeUpdates(this)
     }
 
     private fun startCamera() {
@@ -122,6 +170,7 @@ class MainActivity : AppCompatActivity() {
         if (requestCode == REQUEST_CODE_PERMISSIONS) {
             if (allPermissionsGranted()) {
                 startCamera()
+                setupLocationUpdates()
             } else {
                 Toast.makeText(
                     this,
