@@ -5,6 +5,29 @@ plugins {
     id("org.jlleitschuh.gradle.ktlint") version "12.1.1"
 }
 
+// --- AUTOMATED GIT VERSIONING HELPER ROUTINES ---
+fun getGitCommitCount(): Int {
+    return try {
+        val process = ProcessBuilder("git", "rev-list", "--count", "HEAD").start()
+        val result = process.inputStream.bufferedReader().readText().trim()
+        process.waitFor()
+        if (result.isEmpty()) 1 else result.toInt()
+    } catch (e: Exception) {
+        1 // Fallback if Git is missing or repository is shallow
+    }
+}
+
+fun getGitVersionName(): String {
+    return try {
+        val process = ProcessBuilder("git", "describe", "--tags", "--dirty", "--always").start()
+        val result = process.inputStream.bufferedReader().readText().trim()
+        process.waitFor()
+        if (result.isEmpty()) "1.0.0-SNAPSHOT" else result
+    } catch (e: Exception) {
+        "1.0.0-SNAPSHOT" // Fallback if no tags exist yet
+    }
+}
+
 android {
     namespace = "com.example.helloworldkotlinandroid"
     compileSdk = 34 // Updated to meet modern Android requirements
@@ -23,8 +46,10 @@ android {
         applicationId = "com.example.helloworldkotlinandroid"
         minSdk = 30
         targetSdk = 34 // Updated to bypass the Play Protect block
-        versionCode = 1
-        versionName = "1.0"
+
+        // Dynamically assign version metrics straight from Git metadata
+        versionCode = getGitCommitCount()
+        versionName = getGitVersionName()
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
