@@ -22,8 +22,8 @@ import java.util.concurrent.Executors
 
 class MainActivity : AppCompatActivity(), LocationListener {
     private lateinit var viewFinder: PreviewView
+    private lateinit var debugTelemetry: TextView
     private lateinit var cameraExecutor: ExecutorService
-
     private lateinit var sensorManager: SensorManager
     private var rotationVectorSensor: Sensor? = null
     private lateinit var celestialCalibrator: CelestialCalibrator
@@ -36,6 +36,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        debugTelemetry = findViewById(R.id.debugTelemetry)
         viewFinder = findViewById(R.id.viewFinder)
         cameraExecutor = Executors.newSingleThreadExecutor()
 
@@ -74,6 +75,25 @@ class MainActivity : AppCompatActivity(), LocationListener {
         }
     }
 
+    private fun updateDebugDisplay() {
+        val currentEpochMs = System.currentTimeMillis()
+        val moonTarget = MoonCalculator.getMoonPosition(deviceLatitude, deviceLongitude, currentEpochMs)
+
+        debugTelemetry.text =
+            String.format(
+                """
+                --- GPS TELEMETRY ---
+                Lat: %.6f
+                Lon: %.6f
+                
+                --- MOON POSITION ---
+                Target Az:  %.2f°
+                Target Alt: %.2f°
+                """.trimIndent(),
+                deviceLatitude, deviceLongitude, moonTarget.azimuth, moonTarget.altitude,
+            )
+    }
+
     private fun setupLocationUpdates() {
         try {
             if (ContextCompat.checkSelfPermission(
@@ -102,6 +122,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
     override fun onLocationChanged(location: Location) {
         deviceLatitude = location.latitude
         deviceLongitude = location.longitude
+        updateDebugDisplay()
     }
 
     override fun onProviderEnabled(provider: String) {}
