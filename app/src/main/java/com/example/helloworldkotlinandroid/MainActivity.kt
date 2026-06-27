@@ -78,7 +78,12 @@ class MainActivity : AppCompatActivity(), LocationListener {
 
     private fun updateDebugDisplay() {
         val currentEpochMs = System.currentTimeMillis()
-        val moonTarget = MoonCalculator.getMoonPosition(deviceLatitude, deviceLongitude, currentEpochMs)
+
+    /* data class Position(val azimuth: Double, val altitude: Double)
+     * Calculates the approximate topocentric position of the Moon.
+     * @return Position object containing Azimuth and Altitude in degrees
+     */
+        val moonTarget = MoonCalculator.getPosition(deviceLatitude, deviceLongitude)
 
         debugTelemetry.text =
             String.format(
