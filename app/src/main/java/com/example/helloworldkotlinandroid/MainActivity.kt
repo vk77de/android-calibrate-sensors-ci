@@ -29,6 +29,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
     private lateinit var sensorManager: SensorManager
     private var rotationVectorSensor: Sensor? = null
     private lateinit var celestialCalibrator: CelestialCalibrator
+    private var versionMetadata: String = ""
 
     private lateinit var locationManager: LocationManager
     private var deviceLatitude: Double = 0.0
@@ -38,8 +39,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        displayAppMetadata()
-
+        // 1. Initialize all views first
         debugTelemetry = findViewById(R.id.debugTelemetry)
         viewFinder = findViewById(R.id.viewFinder)
         cameraExecutor = Executors.newSingleThreadExecutor()
@@ -47,8 +47,10 @@ class MainActivity : AppCompatActivity(), LocationListener {
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
         rotationVectorSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
         celestialCalibrator = CelestialCalibrator()
-
         locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
+
+        // 2. Cache and render the metadata immediately
+        displayAppMetadata()
 
         if (rotationVectorSensor == null) {
             Toast.makeText(this, "Rotation Vector Sensor missing on this hardware!", Toast.LENGTH_LONG).show()
@@ -57,31 +59,20 @@ class MainActivity : AppCompatActivity(), LocationListener {
         viewFinder.setOnClickListener {
             val testTargetAzimuth = 180.0f
             val testTargetAltitude = 45.0f
-
             celestialCalibrator.performCelestialCalibration(testTargetAzimuth, testTargetAltitude)
-
-            Toast.makeText(
-                this,
-                "System calibrated! Alignment offset matrix corrected.",
-                Toast.LENGTH_SHORT,
-            ).show()
+            Toast.makeText(this, "System calibrated! Alignment offset matrix corrected.", Toast.LENGTH_SHORT).show()
         }
 
         if (allPermissionsGranted()) {
             startCamera()
             setupLocationUpdates()
         } else {
-            ActivityCompat.requestPermissions(
-                this,
-                REQUIRED_PERMISSIONS,
-                REQUEST_CODE_PERMISSIONS,
-            )
+            ActivityCompat.requestPermissions(this, REQUIRED_PERMISSIONS, REQUEST_CODE_PERMISSIONS)
         }
     }
 
     private fun displayAppMetadata() {
         try {
-            // 1. Fetch the package information for the running application
             val packageInfo =
                 if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
                     packageManager.getPackageInfo(packageName, PackageManager.PackageInfoFlags.of(0))
@@ -90,33 +81,28 @@ class MainActivity : AppCompatActivity(), LocationListener {
                     packageManager.getPackageInfo(packageName, 0)
                 }
 
-            // 2. Extract the exact metrics that your Git routines generated
             val versionName = packageInfo.versionName ?: "Unknown"
-            val versionCode = androidx.core.content.pm.PackageInfoCompat.getLongVersionCode(packageInfo)
+            val versionCode = PackageInfoCompat.getLongVersionCode(packageInfo)
 
-            // 3. Find your layout TextView and bind the text string
-            // (Replace R.id.your_textview_id with your actual XML TextView ID)
-            val metadataTextView = findViewById<TextView>(R.id.debugTelemetry)
-            metadataTextView.text = "App Version: $versionName (Build: $versionCode)"
+            // Cache the string safely for the telemetry loop
+            versionMetadata = "App Version: $versionName (Build: $versionCode)"
         } catch (e: PackageManager.NameNotFoundException) {
-            // Fallback layout protection if package manager queries break
-            val metadataTextView = findViewById<TextView>(R.id.debugTelemetry)
-            metadataTextView.text = "Version metadata unavailable"
+            versionMetadata = "Version metadata unavailable"
         }
+
+        // Initial draw to print metadata immediately on launch
+        updateDebugDisplay()
     }
 
     private fun updateDebugDisplay() {
-        val currentEpochMs = System.currentTimeMillis()
-
-    /* data class Position(val azimuth: Double, val altitude: Double)
-     * Calculates the approximate topocentric position of the Moon.
-     * @return Position object containing Azimuth and Altitude in degrees
-     */
         val moonTarget = MoonCalculator.getPosition(deviceLatitude, deviceLongitude)
 
+        // Prepend the cached metadata string so it never disappears
         debugTelemetry.text =
             String.format(
                 """
+                %s
+                
                 --- GPS TELEMETRY ---
                 Lat: %.6f
                 Lon: %.6f
@@ -125,18 +111,13 @@ class MainActivity : AppCompatActivity(), LocationListener {
                 Target Az:  %.2f°
                 Target Alt: %.2f°
                 """.trimIndent(),
-                deviceLatitude, deviceLongitude, moonTarget.azimuth, moonTarget.altitude,
+                versionMetadata, deviceLatitude, deviceLongitude, moonTarget.azimuth, moonTarget.altitude,
             )
     }
 
     private fun setupLocationUpdates() {
         try {
-            if (ContextCompat.checkSelfPermission(
-                    this,
-                    Manifest.permission.ACCESS_FINE_LOCATION,
-                ) == PackageManager.PERMISSION_GRANTED
-            ) {
-                // Request updates from both GPS and Network sources for reliability
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
                 locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 5000L, 5f, this)
                 locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 5000L, 5f, this)
 
@@ -147,6 +128,9 @@ class MainActivity : AppCompatActivity(), LocationListener {
                 bestLocation?.let {
                     deviceLatitude = it.latitude
                     deviceLongitude = it.longitude
+
+                    // Bugfix: Instantly update the UI with last known telemetry on startup/resume
+                    updateDebugDisplay()
                 }
             }
         } catch (e: SecurityException) {
