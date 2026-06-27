@@ -36,11 +36,31 @@ jobs:
     - name: Build Debug APK
       run: ./gradlew assembleDebug
 
-    # Step 6: Calculate the true cryptographic hash of the raw APK file
+    # Step 6: Verify APK Versioning Metadata using AAPT2
+    - name: Verify APK Versioning Metadata (AAPT2)
+      run: |
+        # 1. Dynamically find the highest build-tools aapt2 binary inside $ANDROID_HOME
+        AAPT2_PATH=$(find $ANDROID_HOME/build-tools -name aapt2 -type f | sort -V | tail -n 1)
+        echo "Using aapt2 located at: $AAPT2_PATH"
+        
+        # 2. Reference the generated module artifact path
+        APK_PATH="app/build/outputs/apk/debug/app-debug.apk"
+        
+        # 3. Extract the manifest package row containing code/name variables
+        BADGING_OUTPUT=$($AAPT2_PATH dump badging $APK_PATH | grep "package:")
+        echo "Extracted Metadata: $BADGING_OUTPUT"
+        
+        # 4. Fail-fast guard: Check if both values hit the default layout fallbacks
+        if [[ $BADGING_OUTPUT == *"versionCode='1'"* ]] && [[ $BADGING_OUTPUT == *"versionName='1.0'"* ]]; then
+          echo "ERROR: Dynamic version injection failed! Default fallbacks detected."
+          exit 1
+        fi
+
+    # Step 7: Calculate the true cryptographic hash of the raw APK file
     - name: Calculate APK SHA256
       run: sha256sum app/build/outputs/apk/debug/app-debug.apk
 
-    # Step 7: Extract the compiled file from the VM so you can download it
+    # Step 8: Extract the compiled file from the VM so you can download it
     - name: Upload Compiled APK Artifact
       uses: actions/upload-artifact@v4
       with:
