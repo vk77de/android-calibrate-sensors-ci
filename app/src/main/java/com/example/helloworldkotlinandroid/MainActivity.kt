@@ -96,11 +96,11 @@ class MainActivity : AppCompatActivity(), LocationListener {
 
             // 3. Find your layout TextView and bind the text string
             // (Replace R.id.your_textview_id with your actual XML TextView ID)
-            val metadataTextView = findViewById<TextView>(R.id.your_textview_id)
+            val metadataTextView = findViewById<TextView>(R.id.debugTelemetry)
             metadataTextView.text = "App Version: $versionName (Build: $versionCode)"
         } catch (e: PackageManager.NameNotFoundException) {
             // Fallback layout protection if package manager queries break
-            val metadataTextView = findViewById<TextView>(R.id.your_textview_id)
+            val metadataTextView = findViewById<TextView>(R.id.debugTelemetry)
             metadataTextView.text = "Version metadata unavailable"
         }
     }
