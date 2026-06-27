@@ -18,6 +18,7 @@ import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.core.content.pm.PackageInfoCompat
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
@@ -36,6 +37,8 @@ class MainActivity : AppCompatActivity(), LocationListener {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+
+        displayAppMetadata()
 
         debugTelemetry = findViewById(R.id.debugTelemetry)
         viewFinder = findViewById(R.id.viewFinder)
@@ -73,6 +76,32 @@ class MainActivity : AppCompatActivity(), LocationListener {
                 REQUIRED_PERMISSIONS,
                 REQUEST_CODE_PERMISSIONS,
             )
+        }
+    }
+
+    private fun displayAppMetadata() {
+        try {
+            // 1. Fetch the package information for the running application
+            val packageInfo =
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                    packageManager.getPackageInfo(packageName, PackageManager.PackageInfoFlags.of(0))
+                } else {
+                    @Suppress("DEPRECATION")
+                    packageManager.getPackageInfo(packageName, 0)
+                }
+
+            // 2. Extract the exact metrics that your Git routines generated
+            val versionName = packageInfo.versionName ?: "Unknown"
+            val versionCode = androidx.core.content.pm.PackageInfoCompat.getLongVersionCode(packageInfo)
+
+            // 3. Find your layout TextView and bind the text string
+            // (Replace R.id.your_textview_id with your actual XML TextView ID)
+            val metadataTextView = findViewById<TextView>(R.id.your_textview_id)
+            metadataTextView.text = "App Version: $versionName (Build: $versionCode)"
+        } catch (e: PackageManager.NameNotFoundException) {
+            // Fallback layout protection if package manager queries break
+            val metadataTextView = findViewById<TextView>(R.id.your_textview_id)
+            metadataTextView.text = "Version metadata unavailable"
         }
     }
 
