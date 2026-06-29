@@ -72,8 +72,8 @@ class MainActivity : AppCompatActivity(), LocationListener {
 
                 // Pass the resolved celestial path arrays straight to the matrix transformer
                 celestialCalibrator.performCelestialCalibration(
-                    moonTarget.azimuth,
-                    moonTarget.altitude,
+                    moonTarget.azimuth.toFloat(),
+                    moonTarget.altitude.toFloat(),
                 )
 
                 val telemetryReport =
