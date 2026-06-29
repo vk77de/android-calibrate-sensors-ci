@@ -57,10 +57,38 @@ class MainActivity : AppCompatActivity(), LocationListener {
         }
 
         viewFinder.setOnClickListener {
-            val testTargetAzimuth = 180.0f
-            val testTargetAltitude = 45.0f
-            celestialCalibrator.performCelestialCalibration(testTargetAzimuth, testTargetAltitude)
-            Toast.makeText(this, "System calibrated! Alignment offset matrix corrected.", Toast.LENGTH_SHORT).show()
+            // Guard conditions check for initial telemetry tracking safety
+            if (deviceLatitude == 0.0 && deviceLongitude == 0.0) {
+                Toast.makeText(
+                    this,
+                    "Acquiring fresh device GPS lock... try again in a moment.",
+                    Toast.LENGTH_SHORT,
+                ).show()
+            } else {
+                val currentEpochMs = System.currentTimeMillis()
+
+                // Solve topocentric position vectors for the Moon
+                val moonTarget =
+                    MoonCalculator.getMoonPosition(
+                        deviceLatitude,
+                        deviceLongitude,
+                        currentEpochMs,
+                    )
+
+                // Pass the resolved celestial path arrays straight to the matrix transformer
+                celestialCalibrator.performCelestialCalibration(
+                    moonTarget.azimuth,
+                    moonTarget.altitude,
+                )
+
+                val telemetryReport =
+                    String.format(
+                        "Calibrated on Moon!\nAz: %.2f° | Alt: %.2f°",
+                        moonTarget.azimuth,
+                        moonTarget.altitude,
+                    )
+                Toast.makeText(this, telemetryReport, Toast.LENGTH_LONG).show()
+            }
         }
 
         if (allPermissionsGranted()) {
