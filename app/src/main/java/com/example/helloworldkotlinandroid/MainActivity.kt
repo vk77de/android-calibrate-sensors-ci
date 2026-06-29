@@ -68,12 +68,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
                 val currentEpochMs = System.currentTimeMillis()
 
                 // Solve topocentric position vectors for the Moon
-                val moonTarget =
-                    MoonCalculator.getMoonPosition(
-                        deviceLatitude,
-                        deviceLongitude,
-                        currentEpochMs,
-                    )
+        val moonTarget = MoonCalculator.getPosition(deviceLatitude, deviceLongitude)
 
                 // Pass the resolved celestial path arrays straight to the matrix transformer
                 celestialCalibrator.performCelestialCalibration(
