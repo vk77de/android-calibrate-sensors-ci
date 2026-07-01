@@ -79,7 +79,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
 
                 // === ADDED HERE: Instantly fire storage operations ===
                 onMoonCalibrationCompleted(
-                    az = offsets[0], 
+                    az = offsets[0],
                     pt = offsets[1],
                     rl = offsets[2],
                 )
