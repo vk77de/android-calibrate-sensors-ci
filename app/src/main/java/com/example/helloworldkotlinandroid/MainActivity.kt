@@ -250,6 +250,24 @@ class MainActivity : AppCompatActivity(), LocationListener {
         cameraExecutor.shutdown()
     }
 
+    private fun onMoonCalibrationCompleted(
+        az: Float,
+        pt: Float,
+        rl: Float,
+    ) {
+        val calibrationResult =
+            MoonCalibrationData(
+                timestamp = System.currentTimeMillis(),
+                azimuthOffset = az,
+                pitchOffset = pt,
+                rollOffset = rl,
+            )
+
+        // Instantiating manager and executing parallel write tasks
+        val storageManager = CalibrationStorageManager(this)
+        storageManager.writeCalibrationToAllStorages(calibrationResult)
+    }
+
     companion object {
         private const val REQUEST_CODE_PERMISSIONS = 10
         private val REQUIRED_PERMISSIONS =
