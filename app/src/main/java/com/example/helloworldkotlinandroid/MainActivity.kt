@@ -79,9 +79,9 @@ class MainActivity : AppCompatActivity(), LocationListener {
 
                 // === ADDED HERE: Instantly fire storage operations ===
                 onMoonCalibrationCompleted(
-                    az = offsets[0], // Azimuth Offset
-                    pt = offsets[1], // Pitch Offset
-                    rl = offsets[2], // Roll Offset
+                    az = offsets[0], 
+                    pt = offsets[1],
+                    rl = offsets[2],
                 )
 
                 val telemetryReport =
