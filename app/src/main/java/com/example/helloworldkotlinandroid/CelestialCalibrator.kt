@@ -36,6 +36,7 @@ class CelestialCalibrator : SensorEventListener {
      * относительно хвоста» (англ. pitch),
      * «крен, вращение вокруг оси самолёта» (англ. roll)
      */
+
     fun performCelestialCalibration(
         trueAzimuth: Float,
         trueAltitude: Float,
@@ -55,15 +56,16 @@ class CelestialCalibrator : SensorEventListener {
         Matrix.multiplyMM(calibrationOffsetMatrix, 0, trueRotationMatrix, 0, invertedSensorMatrix, 0)
         isCalibrated = true
 
-        // === EXTRACTION BLOCK ADDED HERE ===
-        // Extract orientation angles (radians) from the 4x4 calculation matrix
+        // Extract the three Euler angle deltas (in radians) out of the calibration matrix
         val orientationRadians = FloatArray(3)
         SensorManager.getOrientation(calibrationOffsetMatrix, orientationRadians)
 
-        // Convert radians to degrees and return them: [0]=Azimuth, [1]=Pitch, [2]=Roll
-        return FloatArray(3) { i ->
-            Math.toDegrees(orientationRadians[i].toDouble()).toFloat()
-        }
+        // Convert radians to degrees and return them to the MainActivity caller
+        return floatArrayOf(
+            Math.toDegrees(orientationRadians[0].toDouble()).toFloat(),
+            Math.toDegrees(orientationRadians[1].toDouble()).toFloat(),
+            Math.toDegrees(orientationRadians[2].toDouble()).toFloat(),
+        )
     }
 
     override fun onSensorChanged(event: SensorEvent) {
