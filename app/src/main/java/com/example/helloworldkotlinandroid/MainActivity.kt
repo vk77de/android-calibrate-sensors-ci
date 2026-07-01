@@ -70,18 +70,18 @@ class MainActivity : AppCompatActivity(), LocationListener {
                 // Solve topocentric position vectors for the Moon
                 val moonTarget = MoonCalculator.getPosition(deviceLatitude, deviceLongitude)
 
-
                 // === MODIFIED HERE: Run calibration AND capture the resulting offsets ===
-                val offsets = celestialCalibrator.performCelestialCalibration(
-                    moonTarget.azimuth.toFloat(),
-                    moonTarget.altitude.toFloat(),
-                )
+                val offsets =
+                    celestialCalibrator.performCelestialCalibration(
+                        moonTarget.azimuth.toFloat(),
+                        moonTarget.altitude.toFloat(),
+                    )
 
                 // === ADDED HERE: Instantly fire storage operations ===
                 onMoonCalibrationCompleted(
                     az = offsets[0], // Azimuth Offset
                     pt = offsets[1], // Pitch Offset
-                    rl = offsets[2]  // Roll Offset
+                    rl = offsets[2], // Roll Offset
                 )
 
                 val telemetryReport =

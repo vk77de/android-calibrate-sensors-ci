@@ -18,7 +18,7 @@ class CelestialCalibrator : SensorEventListener {
         Matrix.setIdentityM(calibrationOffsetMatrix, 0)
     }
 
-   ﻿    /**
+    /**
      * Call this exact method when the user aligns a known object
      * (e.g. Jupiter) perfectly in the center crosshair of the camera view.
      * @param trueAzimuth In degrees from North (0 to 360)
@@ -61,10 +61,10 @@ class CelestialCalibrator : SensorEventListener {
         SensorManager.getOrientation(calibrationOffsetMatrix, orientationRadians)
 
         // Convert radians to degrees and return them: [0]=Azimuth, [1]=Pitch, [2]=Roll
-        return FloatArray(3) { i -> 
-            Math.toDegrees(orientationRadians[i].toDouble()).toFloat() 
+        return FloatArray(3) { i ->
+            Math.toDegrees(orientationRadians[i].toDouble()).toFloat()
         }
-    } 
+    }
 
     override fun onSensorChanged(event: SensorEvent) {
         if (event.sensor.type == Sensor.TYPE_ROTATION_VECTOR) {
