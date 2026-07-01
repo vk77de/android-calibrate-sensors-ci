@@ -30,6 +30,9 @@ class MainActivity : AppCompatActivity(), LocationListener {
     private var rotationVectorSensor: Sensor? = null
     private lateinit var celestialCalibrator: CelestialCalibrator
     private var versionMetadata: String = ""
+    private var currentAzimuthOffset: Float = 0.0f
+    private var currentPitchOffset: Float = 0.0f
+    private var currentRollOffset: Float = 0.0f
 
     private lateinit var locationManager: LocationManager
     private var deviceLatitude: Double = 0.0
@@ -141,8 +144,20 @@ class MainActivity : AppCompatActivity(), LocationListener {
                 --- MOON POSITION ---
                 Target Az:  %.2f°
                 Target Alt: %.2f°
+                
+                --- ACTIVE CALIBRATION ---
+                Offset Az:   %.2f°
+                Offset Pitch: %.2f°
+                Offset Roll:  %.2f°
                 """.trimIndent(),
-                versionMetadata, deviceLatitude, deviceLongitude, moonTarget.azimuth, moonTarget.altitude,
+                versionMetadata,
+                deviceLatitude,
+                deviceLongitude,
+                moonTarget.azimuth,
+                moonTarget.altitude,
+                currentAzimuthOffset,
+                currentPitchOffset,
+                currentRollOffset,
             )
     }
 
