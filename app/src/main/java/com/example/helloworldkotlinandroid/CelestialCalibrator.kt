@@ -18,16 +18,28 @@ class CelestialCalibrator : SensorEventListener {
         Matrix.setIdentityM(calibrationOffsetMatrix, 0)
     }
 
-    /**
+   ﻿    /**
      * Call this exact method when the user aligns a known object
      * (e.g. Jupiter) perfectly in the center crosshair of the camera view.
      * @param trueAzimuth In degrees from North (0 to 360)
      * @param trueAltitude In degrees from Horizon (-90 to 90)
+     * @return FloatArray containing [azimuthOffset, pitchOffset, rollOffset]
+     * in degrees
+     *
+     * In 3D sensor tracking, navigation, and aerospace engineering,
+     * these three terms represent the error corrections (deltas)
+     * along the three fundamental axes of rotation in 3D space.
+     * Yaw (Azimuth Offset), Pitch (Pitch Offset), Roll (Roll Offset)
+     * «рыскание по курсу» (англ. yaw),
+     * «тангаж, вращение вокруг оси, проходящей через крылья:
+     * самолёт слегка клюет носом или слегка приподнимает нос
+     * относительно хвоста» (англ. pitch),
+     * «крен, вращение вокруг оси самолёта» (англ. roll)
      */
     fun performCelestialCalibration(
         trueAzimuth: Float,
         trueAltitude: Float,
-    ) {
+    ): FloatArray {
         val trueRotationMatrix = FloatArray(16)
 
         // Convert the mathematically calculated real-world coordinates into a target matrix
@@ -42,7 +54,17 @@ class CelestialCalibrator : SensorEventListener {
         // Calculate the error delta offset: Offset = True * Sensor^-1
         Matrix.multiplyMM(calibrationOffsetMatrix, 0, trueRotationMatrix, 0, invertedSensorMatrix, 0)
         isCalibrated = true
-    }
+
+        // === EXTRACTION BLOCK ADDED HERE ===
+        // Extract orientation angles (radians) from the 4x4 calculation matrix
+        val orientationRadians = FloatArray(3)
+        SensorManager.getOrientation(calibrationOffsetMatrix, orientationRadians)
+
+        // Convert radians to degrees and return them: [0]=Azimuth, [1]=Pitch, [2]=Roll
+        return FloatArray(3) { i -> 
+            Math.toDegrees(orientationRadians[i].toDouble()).toFloat() 
+        }
+    } 
 
     override fun onSensorChanged(event: SensorEvent) {
         if (event.sensor.type == Sensor.TYPE_ROTATION_VECTOR) {
