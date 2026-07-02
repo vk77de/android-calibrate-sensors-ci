@@ -206,6 +206,9 @@ class MainActivity : AppCompatActivity(), LocationListener {
         if (allPermissionsGranted()) {
             setupLocationUpdates()
         }
+
+        // Read saved JSON vectors back into the UI context on startup
+        loadSavedCalibration()
     }
 
     override fun onPause() {
@@ -289,6 +292,27 @@ class MainActivity : AppCompatActivity(), LocationListener {
         // Instantiating manager and executing parallel write tasks
         val storageManager = CalibrationStorageManager(this)
         storageManager.writeCalibrationToAllStorages(calibrationResult)
+
+        // Cache values locally and refresh the UI pane immediately
+        currentAzimuthOffset = az
+        currentPitchOffset = pt
+        currentRollOffset = rl
+        updateDebugDisplay()
+    }
+
+    private fun loadSavedCalibration() {
+        val storageManager = CalibrationStorageManager(this)
+        // Note: Change 'readLatestCalibration' to match your exact storage read function name
+        val savedData = storageManager.readLatestCalibration()
+
+        if (savedData != null) {
+            currentAzimuthOffset = savedData.azimuthOffset
+            currentPitchOffset = savedData.pitchOffset
+            currentRollOffset = savedData.rollOffset
+
+            // Refresh the pane to show the historical deltas immediately
+            updateDebugDisplay()
+        }
     }
 
     companion object {
