@@ -1,7 +1,8 @@
-﻿package com.example.helloworldkotlinandroid
+package com.example.helloworldkotlinandroid
 
 import android.content.Context
 import android.util.Log
+import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
@@ -47,6 +48,36 @@ class CalibrationStorageManager(private val context: Context) {
 
         if (internalSuccess && sdCardSuccess) {
             Log.d(TAG, "Calibration data mirrored safely to both filesystems.")
+        }
+    }
+
+    /**
+     * Reads the latest saved calibration data from internal private storage.
+     * Parses the JSON payload back into a MoonCalibrationData object.
+     * @return MoonCalibrationData instance if successful, or null if file doesn't exist or is corrupted.
+     */
+    fun readLatestCalibration(): MoonCalibrationData? {
+        val targetFile = File(context.filesDir, FILE_NAME)
+
+        if (!targetFile.exists()) {
+            Log.d(TAG, "No historical calibration file found at ${targetFile.absolutePath}")
+            return null
+        }
+
+        return try {
+            val jsonString = context.openFileInput(FILE_NAME).bufferedReader().use { it.readText() }
+            val jsonObject = JSONObject(jsonString)
+
+            MoonCalibrationData(
+                timestamp = jsonObject.getLong("timestamp"),
+                azimuthOffset = jsonObject.getDouble("azimuth_offset").toFloat(),
+                pitchOffset = jsonObject.getDouble("pitch_offset").toFloat(),
+                rollOffset = jsonObject.getDouble("roll_offset").toFloat(),
+                targetCelestialBody = jsonObject.optString("target", "Moon"),
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "Critical failure reading or decoding calibration JSON payload", e)
+            null
         }
     }
 
