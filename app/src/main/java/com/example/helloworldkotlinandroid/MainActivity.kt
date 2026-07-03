@@ -40,6 +40,22 @@ class MainActivity : AppCompatActivity(), LocationListener {
     private var deviceLongitude: Double = 0.0
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // ---- CRASH LOGGER PATCH START ----
+        Thread.setDefaultUncaughtExceptionHandler { _, throwable ->
+            try {
+                val crashFile = java.io.File(getExternalFilesDir(null), "crash_dump.txt")
+                java.io.PrintWriter(java.io.FileWriter(crashFile)).use { writer ->
+                    throwable.printStackTrace(writer)
+                }
+            } catch (e: Exception) {
+                // Fallback if file writing fails
+            }
+            // Let the system handle the crash normally after logging
+            android.os.Process.killProcess(android.os.Process.myPid())
+            java.system.exit(10)
+        }
+        // ---- CRASH LOGGER PATCH END ----
+
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
