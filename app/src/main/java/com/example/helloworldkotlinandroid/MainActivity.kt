@@ -52,7 +52,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
             }
             // Let the system handle the crash normally after logging
             android.os.Process.killProcess(android.os.Process.myPid())
-            java.system.exit(10)
+            java.lang.System.exit(10)
         }
         // ---- CRASH LOGGER PATCH END ----
 
