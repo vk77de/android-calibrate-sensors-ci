@@ -88,4 +88,45 @@ class CelestialCalibrator : SensorEventListener {
         sensor: Sensor?,
         accuracy: Int,
     ) {}
+    /**
+     * Converts a target's Azimuth and Altitude into 3D device coordinates
+     * using the calibrated matrix, projecting them to 2D screen positions.
+     */
+
+fun projectOrientationToScreen(
+        azimuth: Double,
+        altitude: Double,
+        width: Int,
+        height: Int,
+    ): android.graphics.PointF? {
+        val azRad = Math.toRadians(azimuth)
+        val altRad = Math.toRadians(altitude)
+
+        // Generate the 3D directional vector in the world frame (ENU system)
+        val worldX = cos(altRad) * sin(azRad)
+        val worldY = cos(altRad) * cos(azRad)
+        val worldZ = sin(altRad)
+
+        val worldVector = floatArrayOf(worldX.toFloat(), worldY.toFloat(), worldZ.toFloat(), 1.0f)
+        val deviceVector = FloatArray(4)
+
+        // Perform spatial transformation using the calibrated device orientation matrix
+        Matrix.multiplyMV(deviceVector, 0, calibratedMatrix, 0, worldVector, 0)
+
+        // If the Z coordinate is positive, the object resides behind the phone's display plane
+        if (deviceVector[2] >= 0f) {
+            return null
+        }
+
+        val centerX = width / 2f
+        val centerY = height / 2f
+        
+        // Approximate standard 60-degree field of view tracking index
+        val cameraFocalFactor = width * 1.1f 
+
+        val screenX = centerX + (deviceVector[0] / -deviceVector[2]) * cameraFocalFactor
+        val screenY = centerY - (deviceVector[1] / -deviceVector[2]) * cameraFocalFactor
+
+        return android.graphics.PointF(screenX, screenY)
+    }
 }
