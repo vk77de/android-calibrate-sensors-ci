@@ -23,6 +23,7 @@ import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
 class MainActivity : AppCompatActivity(), LocationListener {
+    private lateinit var celestialOverlayView: CelestialOverlayView
     private lateinit var viewFinder: PreviewView
     private lateinit var debugTelemetry: TextView
     private lateinit var cameraExecutor: ExecutorService
@@ -103,6 +104,10 @@ class MainActivity : AppCompatActivity(), LocationListener {
         } else {
             ActivityCompat.requestPermissions(this, REQUIRED_PERMISSIONS, REQUEST_CODE_PERMISSIONS)
         }
+
+        celestialOverlayView = CelestialOverlayView(this, celestialCalibrator)
+        val rootLayout = findViewById<android.view.ViewGroup>(android.R.id.content)
+        rootLayout.addView(celestialOverlayView)
     }
 
     private fun displayAppMetadata() {
@@ -174,6 +179,7 @@ class MainActivity : AppCompatActivity(), LocationListener {
                 bestLocation?.let {
                     deviceLatitude = it.latitude
                     deviceLongitude = it.longitude
+                    celestialOverlayView.updateCoordinates(deviceLatitude, deviceLongitude)
 
                     // Bugfix: Instantly update the UI with last known telemetry on startup/resume
                     updateDebugDisplay()
@@ -187,6 +193,9 @@ class MainActivity : AppCompatActivity(), LocationListener {
     override fun onLocationChanged(location: Location) {
         deviceLatitude = location.latitude
         deviceLongitude = location.longitude
+
+        celestialOverlayView.updateCoordinates(location.latitude, location.longitude)
+
         updateDebugDisplay()
     }
 
