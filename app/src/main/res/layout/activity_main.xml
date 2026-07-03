@@ -8,6 +8,14 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
+    <ImageView
+        android:id="@+id/reticleOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:src="@drawable/reticle_guiding"
+        android:scaleType="centerInside"
+        android:contentDescription="Professional Guiding Reticle" />
+
     <TextView
         android:id="@+id/debugTelemetry"
         android:layout_width="wrap_content"
@@ -19,4 +27,6 @@
         android:fontFamily="monospace"
         android:text="Telemetry: Waiting for data..."
         android:textSize="12sp" />
+
 </FrameLayout>
+
