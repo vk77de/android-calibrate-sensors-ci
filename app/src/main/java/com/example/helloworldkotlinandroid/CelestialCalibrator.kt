@@ -5,6 +5,8 @@ import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.opengl.Matrix
+import kotlin.math.cos
+import kotlin.math.sin
 
 class CelestialCalibrator : SensorEventListener {
     // Matrices stored as 16-element 4x4 flat arrays for OpenGL compatibility
