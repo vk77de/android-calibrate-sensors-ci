@@ -59,9 +59,10 @@ class MainActivity : AppCompatActivity(), LocationListener {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // 1. Initialize all views first
+        // 1. Initialize all views from the layout XML context
         debugTelemetry = findViewById(R.id.debugTelemetry)
         viewFinder = findViewById(R.id.viewFinder)
+        celestialOverlayView = findViewById(R.id.celestialOverlayView)
         cameraExecutor = Executors.newSingleThreadExecutor()
 
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
@@ -69,7 +70,10 @@ class MainActivity : AppCompatActivity(), LocationListener {
         celestialCalibrator = CelestialCalibrator()
         locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
 
-        // 2. Cache and render the metadata immediately
+        // 2. Supply the required calibration dependency instance to your layout view
+        celestialOverlayView.calibrator = celestialCalibrator
+
+        // 3. Cache and render the metadata immediately
         displayAppMetadata()
 
         if (rotationVectorSensor == null) {
@@ -120,10 +124,6 @@ class MainActivity : AppCompatActivity(), LocationListener {
         } else {
             ActivityCompat.requestPermissions(this, REQUIRED_PERMISSIONS, REQUEST_CODE_PERMISSIONS)
         }
-
-        celestialOverlayView = CelestialOverlayView(this, celestialCalibrator)
-        val rootLayout = findViewById<android.view.ViewGroup>(android.R.id.content)
-        rootLayout.addView(celestialOverlayView)
     }
 
     private fun displayAppMetadata() {
@@ -327,7 +327,6 @@ class MainActivity : AppCompatActivity(), LocationListener {
 
     private fun loadSavedCalibration() {
         val storageManager = CalibrationStorageManager(this)
-        // Note: Change 'readLatestCalibration' to match your exact storage read function name
         val savedData = storageManager.readLatestCalibration()
 
         if (savedData != null) {
