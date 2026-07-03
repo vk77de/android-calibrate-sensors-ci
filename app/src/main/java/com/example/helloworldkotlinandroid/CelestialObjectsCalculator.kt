@@ -9,17 +9,19 @@ import kotlin.math.sin
 import kotlin.math.tan
 
 object CelestialObjectsCalculator {
-
     data class TargetBody(
         val name: String,
         val azimuth: Double,
-        val altitude: Double
+        val altitude: Double,
     )
 
     /**
      * Solves the topocentric horizontal coordinates for the requested objects.
      */
-    fun getCalibratedObjects(lat: Double, lon: Double): List<TargetBody> {
+    fun getCalibratedObjects(
+        lat: Double,
+        lon: Double,
+    ): List<TargetBody> {
         val cal = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
         val timeMs = cal.timeInMillis
 
@@ -71,7 +73,12 @@ object CelestialObjectsCalculator {
         return list
     }
 
-    private fun computeAltAz(ra: Double, dec: Double, lat: Double, lst: Double): MoonCalculator.Position {
+    private fun computeAltAz(
+        ra: Double,
+        dec: Double,
+        lat: Double,
+        lst: Double,
+    ): MoonCalculator.Position {
         var ha = lst - ra
         ha = (ha % 360 + 360) % 360
 

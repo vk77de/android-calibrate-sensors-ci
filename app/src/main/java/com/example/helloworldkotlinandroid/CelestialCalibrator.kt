@@ -88,12 +88,13 @@ class CelestialCalibrator : SensorEventListener {
         sensor: Sensor?,
         accuracy: Int,
     ) {}
+
     /**
      * Converts a target's Azimuth and Altitude into 3D device coordinates
      * using the calibrated matrix, projecting them to 2D screen positions.
      */
 
-fun projectOrientationToScreen(
+    fun projectOrientationToScreen(
         azimuth: Double,
         altitude: Double,
         width: Int,
@@ -120,9 +121,9 @@ fun projectOrientationToScreen(
 
         val centerX = width / 2f
         val centerY = height / 2f
-        
+
         // Approximate standard 60-degree field of view tracking index
-        val cameraFocalFactor = width * 1.1f 
+        val cameraFocalFactor = width * 1.1f
 
         val screenX = centerX + (deviceVector[0] / -deviceVector[2]) * cameraFocalFactor
         val screenY = centerY - (deviceVector[1] / -deviceVector[2]) * cameraFocalFactor
