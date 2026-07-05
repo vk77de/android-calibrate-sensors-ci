@@ -3,11 +3,14 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <ImageView
+
+<ImageView
     android:layout_width="128dp"
-    android:height="128dp"
-    android:src="@drawable/ic_launcher_foreground"
+    android:layout_height="128dp"
+    android:layout_gravity="center"
+    app:srcCompat="@drawable/ic_launcher_foreground"
     android:background="@drawable/ic_launcher_background" />
+
 
 
     <androidx.camera.view.PreviewView
