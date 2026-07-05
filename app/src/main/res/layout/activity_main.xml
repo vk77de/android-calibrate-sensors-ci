@@ -22,12 +22,12 @@
         android:scaleType="centerInside"
         android:contentDescription="Professional Guiding Reticle" />
 
-    <ImageView
+<!--<ImageView
         android:layout_width="128dp"
         android:layout_height="128dp"
         android:layout_gravity="center"
         app:srcCompat="@drawable/ic_launcher_foreground"
-        android:background="@drawable/ic_launcher_background" />
+        android:background="@drawable/ic_launcher_background" />-->
 
     <TextView
         android:id="@+id/debugTelemetry"
