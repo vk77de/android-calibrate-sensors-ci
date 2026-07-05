@@ -3,6 +3,13 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
+    <ImageView
+    android:layout_width="128dp"
+    android:height="128dp"
+    android:src="@drawable/ic_launcher_foreground"
+    android:background="@drawable/ic_launcher_background" />
+
+
     <androidx.camera.view.PreviewView
         android:id="@+id/viewFinder"
         android:layout_width="match_parent"
