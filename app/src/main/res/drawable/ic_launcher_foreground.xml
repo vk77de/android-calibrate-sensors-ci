@@ -6,37 +6,89 @@
     android:viewportHeight="108">
 
     <group
-        android:name="tibetan_hum_foreground"
         android:translateX="22"
         android:translateY="12">
 
+        <!-- Top Bindu/Anusvara (Circle represented as Arc path) -->
         <path
-            android:fillColor="#1A237E"
-            android:pathData="M 32 6 A 4 4 0 1 1 32 14 A 4 4 0 1 1 32 6 Z" />
-            
-        <path
-            android:fillColor="#1A237E"
-            android:pathData="M 22 20 C 26 20 30 18 32 15 C 34 18 38 20 42 20 C 45 20 41 23 32 23 C 23 23 19 20 22 20 Z" />
+            android:pathData="M 27.6,12 A 4.4,3.4 0 1 0 36.4,12 A 4.4,3.4 0 1 0 27.6,12 Z"
+            android:strokeColor="#1A237E"
+            android:strokeWidth="4"
+            android:fillColor="#00000000" />
 
+        <!-- Horizontal line / Top bar -->
         <path
-            android:fillColor="#1A237E"
-            android:pathData="M 16 26 L 48 26 L 48 30 L 36 30 L 22 44 L 18 40 L 30 30 L 16 30 Z" />
-            
-        <path
-            android:fillColor="#1A237E"
-            android:pathData="M 24 40 C 28 40 34 43 34 48 C 34 53 28 56 22 56 C 16 56 14 52 14 48 C 14 43 18 40 24 40 Z M 24 44 C 21 44 18 46 18 48 C 18 50 20 52 22 52 C 25 52 30 50 30 48 C 30 46 27 44 24 44 Z" />
-                             
-        <path
-            android:fillColor="#1A237E"
-            android:pathData="M 42 26 L 46 26 L 46 65 L 42 65 Z" />
+            android:pathData="M 18.4 26 L 45.6 26 L 45.6 30 L 36 30 L 18.4 30 Z"
+            android:fillColor="#1A237E" />
 
+        <!-- Elliptical arc (Crescent/Nada element) -->
         <path
-            android:fillColor="#1A237E"
-            android:pathData="M 46 53 C 52 53 54 60 54 66 L 50 66 C 50 62 48 57 46 57 Z" />
+            android:pathData="M 19.76 16.053777 A 13.6 9.3 0 0 0 44.24 16.053777"
+            android:strokeColor="#1A237E"
+            android:strokeWidth="4"
+            android:fillColor="#00000000" />
 
+        <!-- Letter HA - Left diagonal stroke -->
         <path
-            android:fillColor="#1A237E"
-            android:pathData="M 42 65 C 42 76 35 83 28 83 L 28 79 C 33 79 38 74 38 65 Z" />
+            android:pathData="M 25 27.2 L 18.0 39"
+            android:strokeColor="#1A237E"
+            android:strokeWidth="4" />
 
+        <!-- Letter HA - Left horizontal hook entry -->
+        <path
+            android:pathData="M 17 37 L 30 41"
+            android:strokeColor="#1A237E"
+            android:strokeWidth="4" />
+
+        <!-- The main curve of the letter HA -->
+        <path
+            android:pathData="M 26 39 C 38 30, 57 39, 33.5 50"
+            android:strokeColor="#1A237E"
+            android:strokeWidth="4"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:fillColor="#00000000" />
+
+        <!-- Horizontal line of the 'a-chung' anchor -->
+        <path
+            android:pathData="M 35 50 L 45.6 50"
+            android:strokeColor="#1A237E"
+            android:strokeWidth="4" />
+
+        <!-- Left curve of the 'a-chung' -->
+        <path
+            android:pathData="M 28 61.5 C 24.7 56, 26 50, 35 50"
+            android:strokeColor="#1A237E"
+            android:strokeWidth="4"
+            android:strokeLineCap="square"
+            android:strokeLineJoin="round"
+            android:fillColor="#00000000" />
+
+        <!-- Right curve of the 'a-chung' -->
+        <path
+            android:pathData="M 43.5 52 C 45 54, 45.2 55, 44 58"
+            android:strokeColor="#1A237E"
+            android:strokeWidth="4"
+            android:strokeLineCap="square"
+            android:strokeLineJoin="round"
+            android:fillColor="#00000000" />
+
+        <!-- Tail of the 'a-chung' -->
+        <path
+            android:pathData="M 36.5 60 C 42 60, 42 60, 48 65"
+            android:strokeColor="#1A237E"
+            android:strokeWidth="4"
+            android:strokeLineCap="square"
+            android:strokeLineJoin="round"
+            android:fillColor="#00000000" />
+
+        <!-- U vowel (zhabskyu subscript) -->
+        <path
+            android:pathData="M 41 66.5 C 45 64, 53 67, 52 72 S 47 78.5, 41 77.5 S 34.9 76.4, 29 73.5 S 21 64.5, 15 60"
+            android:strokeColor="#1A237E"
+            android:strokeWidth="4"
+            android:strokeLineCap="square"
+            android:strokeLineJoin="round"
+            android:fillColor="#00000000" />
     </group>
 </vector>
