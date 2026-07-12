@@ -9,342 +9,242 @@ import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
 import android.os.Bundle
-import android.widget.TextView
 import android.widget.Toast
-import androidx.appcompat.app.AppCompatActivity
-import androidx.camera.core.CameraSelector
-import androidx.camera.core.Preview
-import androidx.camera.lifecycle.ProcessCameraProvider
-import androidx.camera.view.PreviewView
-import androidx.core.app.ActivityCompat
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import androidx.core.content.pm.PackageInfoCompat
-import java.util.concurrent.ExecutorService
-import java.util.concurrent.Executors
+import kotlinx.coroutines.delay
+import java.io.File
+import java.io.FileWriter
+import java.io.PrintWriter
 
-class MainActivity : AppCompatActivity(), LocationListener {
-    private lateinit var celestialOverlayView: CelestialOverlayView
-    private lateinit var viewFinder: PreviewView
-    private lateinit var debugTelemetry: TextView
-    private lateinit var cameraExecutor: ExecutorService
-    private lateinit var sensorManager: SensorManager
-    private var rotationVectorSensor: Sensor? = null
-    private lateinit var celestialCalibrator: CelestialCalibrator
-    private var versionMetadata: String = ""
-    private var currentAzimuthOffset: Float = 0.0f
-    private var currentPitchOffset: Float = 0.0f
-    private var currentRollOffset: Float = 0.0f
+class MainActivity : ComponentActivity() {
 
-    private lateinit var locationManager: LocationManager
-    private var deviceLatitude: Double = 0.0
-    private var deviceLongitude: Double = 0.0
+    private val celestialCalibrator = CelestialCalibrator()
+    private lateinit var storageManager: CalibrationStorageManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // ---- CRASH LOGGER PATCH START ----
         Thread.setDefaultUncaughtExceptionHandler { _, throwable ->
             try {
-                val crashFile = java.io.File(getExternalFilesDir(null), "crash_dump.txt")
-                java.io.PrintWriter(java.io.FileWriter(crashFile)).use { writer ->
-                    throwable.printStackTrace(writer)
-                }
-            } catch (e: Exception) {
-                // Fallback if file writing fails
-            }
-            // Let the system handle the crash normally after logging
+                val crashFile = File(getExternalFilesDir(null), "crash_dump.txt")
+                PrintWriter(FileWriter(crashFile)).use { throwable.printStackTrace(it) }
+            } catch (e: Exception) { }
             android.os.Process.killProcess(android.os.Process.myPid())
             java.lang.System.exit(10)
         }
         // ---- CRASH LOGGER PATCH END ----
 
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
+        storageManager = CalibrationStorageManager(this)
 
-        // 1. Initialize all views from the layout XML context
-        debugTelemetry = findViewById(R.id.debugTelemetry)
-        viewFinder = findViewById(R.id.viewFinder)
-        celestialOverlayView = findViewById(R.id.celestialOverlayView)
-        cameraExecutor = Executors.newSingleThreadExecutor()
-
-        sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
-        rotationVectorSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
-        celestialCalibrator = CelestialCalibrator()
-        locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
-
-        // 2. Supply the required calibration dependency instance to your layout view
-        celestialOverlayView.calibrator = celestialCalibrator
-
-        // 3. Cache and render the metadata immediately
-        displayAppMetadata()
-
-        if (rotationVectorSensor == null) {
-            Toast.makeText(this, "Rotation Vector Sensor missing on this hardware!", Toast.LENGTH_LONG).show()
-        }
-
-        viewFinder.setOnClickListener {
-            // Guard conditions check for initial telemetry tracking safety
-            if (deviceLatitude == 0.0 && deviceLongitude == 0.0) {
-                Toast.makeText(
-                    this,
-                    "Acquiring fresh device GPS lock... try again in a moment.",
-                    Toast.LENGTH_SHORT,
-                ).show()
-            } else {
-                val currentEpochMs = System.currentTimeMillis()
-
-                // Solve topocentric position vectors for the Moon
-                val moonTarget = MoonCalculator.getPosition(deviceLatitude, deviceLongitude)
-
-                // === MODIFIED HERE: Run calibration AND capture the resulting offsets ===
-                val offsets =
-                    celestialCalibrator.performCelestialCalibration(
-                        moonTarget.azimuth.toFloat(),
-                        moonTarget.altitude.toFloat(),
-                    )
-
-                // === ADDED HERE: Instantly fire storage operations ===
-                onMoonCalibrationCompleted(
-                    az = offsets[0],
-                    pt = offsets[1],
-                    rl = offsets[2],
-                )
-
-                val telemetryReport =
-                    String.format(
-                        "Calibrated on Moon!\nAz: %.2f° | Alt: %.2f°",
-                        moonTarget.azimuth,
-                        moonTarget.altitude,
-                    )
-                Toast.makeText(this, telemetryReport, Toast.LENGTH_LONG).show()
-            }
-        }
-
-        if (allPermissionsGranted()) {
-            startCamera()
-            setupLocationUpdates()
-        } else {
-            ActivityCompat.requestPermissions(this, REQUIRED_PERMISSIONS, REQUEST_CODE_PERMISSIONS)
-        }
-    }
-
-    private fun displayAppMetadata() {
-        try {
-            val packageInfo =
-                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-                    packageManager.getPackageInfo(packageName, PackageManager.PackageInfoFlags.of(0))
-                } else {
-                    @Suppress("DEPRECATION")
-                    packageManager.getPackageInfo(packageName, 0)
-                }
-
-            val versionName = packageInfo.versionName ?: "Unknown"
-            val versionCode = PackageInfoCompat.getLongVersionCode(packageInfo)
-
-            // Cache the string safely for the telemetry loop
-            versionMetadata = "App Version: $versionName (Build: $versionCode)"
-        } catch (e: PackageManager.NameNotFoundException) {
-            versionMetadata = "Version metadata unavailable"
-        }
-
-        // Initial draw to print metadata immediately on launch
-        updateDebugDisplay()
-    }
-
-    private fun updateDebugDisplay() {
-        val moonTarget = MoonCalculator.getPosition(deviceLatitude, deviceLongitude)
-
-        // Prepend the cached metadata string so it never disappears
-        debugTelemetry.text =
-            String.format(
-                """
-                %s
-                
-                --- GPS TELEMETRY ---
-                Lat: %.6f
-                Lon: %.6f
-                
-                --- MOON POSITION ---
-                Target Az:  %.2f°
-                Target Alt: %.2f°
-                
-                --- ACTIVE CALIBRATION ---
-                Offset Az:   %.2f°
-                Offset Pitch: %.2f°
-                Offset Roll:  %.2f°
-                """.trimIndent(),
-                versionMetadata,
-                deviceLatitude,
-                deviceLongitude,
-                moonTarget.azimuth,
-                moonTarget.altitude,
-                currentAzimuthOffset,
-                currentPitchOffset,
-                currentRollOffset,
-            )
-    }
-
-    private fun setupLocationUpdates() {
-        try {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
-                locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 5000L, 5f, this)
-                locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 5000L, 5f, this)
-
-                val lastKnownGps = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER)
-                val lastKnownNetwork = locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
-                val bestLocation = lastKnownGps ?: lastKnownNetwork
-
-                bestLocation?.let {
-                    deviceLatitude = it.latitude
-                    deviceLongitude = it.longitude
-                    celestialOverlayView.updateCoordinates(deviceLatitude, deviceLongitude)
-
-                    // Bugfix: Instantly update the UI with last known telemetry on startup/resume
-                    updateDebugDisplay()
+        setContent {
+            var hasPermissions by remember { mutableStateOf(allPermissionsGranted()) }
+            
+            val launcher = rememberLauncherForActivityResult(
+                contract = ActivityResultContracts.RequestMultiplePermissions()
+            ) { permissions ->
+                hasPermissions = permissions.values.all { it }
+                if (!hasPermissions) {
+                    Toast.makeText(this, "Camera and Location permissions are required.", Toast.LENGTH_LONG).show()
+                    finish()
                 }
             }
-        } catch (e: SecurityException) {
-            Toast.makeText(this, "Location access tracing security failure.", Toast.LENGTH_SHORT).show()
-        }
-    }
 
-    override fun onLocationChanged(location: Location) {
-        deviceLatitude = location.latitude
-        deviceLongitude = location.longitude
-
-        celestialOverlayView.updateCoordinates(location.latitude, location.longitude)
-
-        updateDebugDisplay()
-    }
-
-    override fun onProviderEnabled(provider: String) {}
-
-    override fun onProviderDisabled(provider: String) {}
-
-    override fun onResume() {
-        super.onResume()
-        rotationVectorSensor?.let {
-            sensorManager.registerListener(
-                celestialCalibrator,
-                it,
-                SensorManager.SENSOR_DELAY_UI,
-            )
-        }
-        if (allPermissionsGranted()) {
-            setupLocationUpdates()
-        }
-
-        // Read saved JSON vectors back into the UI context on startup
-        loadSavedCalibration()
-    }
-
-    override fun onPause() {
-        super.onPause()
-        sensorManager.unregisterListener(celestialCalibrator)
-        locationManager.removeUpdates(this)
-    }
-
-    private fun startCamera() {
-        val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
-
-        cameraProviderFuture.addListener({
-            val cameraProvider: ProcessCameraProvider = cameraProviderFuture.get()
-
-            val preview =
-                Preview.Builder()
-                    .build()
-                    .also {
-                        it.setSurfaceProvider(viewFinder.surfaceProvider)
-                    }
-
-            val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
-
-            try {
-                cameraProvider.unbindAll()
-                cameraProvider.bindToLifecycle(
-                    this,
-                    cameraSelector,
-                    preview,
-                )
-            } catch (exc: Exception) {
-                Toast.makeText(this, "Failed to bind camera use cases.", Toast.LENGTH_SHORT).show()
+            LaunchedEffect(Unit) {
+                if (!hasPermissions) {
+                    launcher.launch(REQUIRED_PERMISSIONS)
+                }
             }
-        }, ContextCompat.getMainExecutor(this))
-    }
 
-    private fun allPermissionsGranted() =
-        REQUIRED_PERMISSIONS.all {
-            ContextCompat.checkSelfPermission(baseContext, it) == PackageManager.PERMISSION_GRANTED
-        }
-
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<String>,
-        grantResults: IntArray,
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == REQUEST_CODE_PERMISSIONS) {
-            if (allPermissionsGranted()) {
-                startCamera()
-                setupLocationUpdates()
-            } else {
-                Toast.makeText(
-                    this,
-                    "Camera and Location permissions are required for celestial tracking.",
-                    Toast.LENGTH_SHORT,
-                ).show()
-                finish()
+            if (hasPermissions) {
+                CelestialTrackerScreen(celestialCalibrator, storageManager)
             }
         }
     }
 
-    override fun onDestroy() {
-        super.onDestroy()
-        cameraExecutor.shutdown()
-    }
-
-    private fun onMoonCalibrationCompleted(
-        az: Float,
-        pt: Float,
-        rl: Float,
-    ) {
-        val calibrationResult =
-            MoonCalibrationData(
-                timestamp = System.currentTimeMillis(),
-                azimuthOffset = az,
-                pitchOffset = pt,
-                rollOffset = rl,
-            )
-
-        // Instantiating manager and executing parallel write tasks
-        val storageManager = CalibrationStorageManager(this)
-        storageManager.writeCalibrationToAllStorages(calibrationResult)
-
-        // Cache values locally and refresh the UI pane immediately
-        currentAzimuthOffset = az
-        currentPitchOffset = pt
-        currentRollOffset = rl
-        updateDebugDisplay()
-    }
-
-    private fun loadSavedCalibration() {
-        val storageManager = CalibrationStorageManager(this)
-        val savedData = storageManager.readLatestCalibration()
-
-        if (savedData != null) {
-            currentAzimuthOffset = savedData.azimuthOffset
-            currentPitchOffset = savedData.pitchOffset
-            currentRollOffset = savedData.rollOffset
-
-            // Refresh the pane to show the historical deltas immediately
-            updateDebugDisplay()
-        }
+    private fun allPermissionsGranted() = REQUIRED_PERMISSIONS.all {
+        ContextCompat.checkSelfPermission(baseContext, it) == PackageManager.PERMISSION_GRANTED
     }
 
     companion object {
-        private const val REQUEST_CODE_PERMISSIONS = 10
-        private val REQUIRED_PERMISSIONS =
-            arrayOf(
-                Manifest.permission.CAMERA,
-                Manifest.permission.ACCESS_FINE_LOCATION,
-            )
+        private val REQUIRED_PERMISSIONS = arrayOf(
+            Manifest.permission.CAMERA,
+            Manifest.permission.ACCESS_FINE_LOCATION
+        )
     }
 }
+
+@Composable
+fun CelestialTrackerScreen(
+    calibrator: CelestialCalibrator,
+    storageManager: CalibrationStorageManager
+) {
+    val context = LocalContext.current
+    
+    // --- State Vectors ---
+    var deviceLatitude by remember { mutableStateOf(0.0) }
+    var deviceLongitude by remember { mutableStateOf(0.0) }
+    var currentAzimuthOffset by remember { mutableStateOf(0.0f) }
+    var currentPitchOffset by remember { mutableStateOf(0.0f) }
+    var currentRollOffset by remember { mutableStateOf(0.0f) }
+    var versionMetadata by remember { mutableStateOf("Version metadata unavailable") }
+    var frameTicker by remember { mutableStateOf(0L) }
+
+    val moonTarget = remember(deviceLatitude, deviceLongitude, frameTicker) {
+        MoonCalculator.getPosition(deviceLatitude, deviceLongitude)
+    }
+
+    // --- High-Performance Compose Invalidations Loop ---
+    LaunchedEffect(Unit) {
+        while (true) {
+            frameTicker++
+            delay(16L) // Matches standard ~60fps rendering frame cycles
+        }
+    }
+
+    // --- Version Extraction ---
+    LaunchedEffect(Unit) {
+        try {
+            val packageInfo = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                context.packageManager.getPackageInfo(context.packageName, PackageManager.PackageInfoFlags.of(0))
+            } else {
+                @Suppress("DEPRECATION")
+                context.packageManager.getPackageInfo(context.packageName, 0)
+            }
+            val versionName = packageInfo.versionName ?: "Unknown"
+            val versionCode = PackageInfoCompat.getLongVersionCode(packageInfo)
+            versionMetadata = "App Version: $versionName (Build: $versionCode)"
+        } catch (e: Exception) { }
+    }
+
+    // --- Loading Historical Storage Matrices ---
+    LaunchedEffect(Unit) {
+        storageManager.readLatestCalibration()?.let { saved ->
+            currentAzimuthOffset = saved.azimuthOffset
+            currentPitchOffset = saved.pitchOffset
+            currentRollOffset = saved.rollOffset
+            calibrator.setCalibrationOffsets(saved.azimuthOffset, saved.pitchOffset, saved.rollOffset)
+        }
+    }
+
+    // --- Hardware Sensor Pipeline Mounting ---
+    DisposableEffect(Unit) {
+        val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
+        val rotVectorSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
+        
+        if (rotVectorSensor == null) {
+            Toast.makeText(context, "Rotation Vector Sensor missing on hardware!", Toast.LENGTH_LONG).show()
+        } else {
+            sensorManager.registerListener(calibrator, rotVectorSensor, SensorManager.SENSOR_DELAY_UI)
+        }
+
+        onDispose {
+            sensorManager.unregisterListener(calibrator)
+        }
+    }
+
+    // --- Location Pipeline Mounting ---
+    DisposableEffect(Unit) {
+        val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+        
+        val locationListener = object : LocationListener {
+            override fun onLocationChanged(location: Location) {
+                deviceLatitude = location.latitude
+                deviceLongitude = location.longitude
+            }
+            override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
+            override fun onProviderEnabled(provider: String) {}
+            override fun onProviderDisabled(provider: String) {}
+        }
+
+        try {
+            locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 5000L, 5f, locationListener)
+            locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 5000L, 5f, locationListener)
+            
+            val lastGps = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER)
+            val lastNet = locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
+            (lastGps ?: lastNet)?.let {
+                deviceLatitude = it.latitude
+                deviceLongitude = it.longitude
+            }
+        } catch (e: SecurityException) {
+            Toast.makeText(context, "Location access tracing failure.", Toast.LENGTH_SHORT).show()
+        }
+
+        onDispose {
+            locationManager.removeUpdates(locationListener)
+        }
+    }
+
+    // --- Main Layout Hierarchy ---
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .clickable {
+                if (deviceLatitude == 0.0 && deviceLongitude == 0.0) {
+                    Toast.makeText(context, "Acquiring fresh GPS lock... try again.", Toast.LENGTH_SHORT).show()
+                } else {
+                    val target = MoonCalculator.getPosition(deviceLatitude, deviceLongitude)
+                    val offsets = calibrator.performCelestialCalibration(
+                        target.azimuth.toFloat(),
+                        target.altitude.toFloat()
+                    )
+
+                    currentAzimuthOffset = offsets[0]
+                    currentPitchOffset = offsets[1]
+                    currentRollOffset = offsets[2]
+
+                    storageManager.writeCalibrationToAllStorages(
+                        MoonCalibrationData(
+                            timestamp = System.currentTimeMillis(),
+                            azimuthOffset = offsets[0],
+                            pitchOffset = offsets[1],
+                            rollOffset = offsets[2]
+                        )
+                    )
+
+                    Toast.makeText(
+                        context,
+                        String.format("Calibrated on Moon!\nAz: %.2f° | Alt: %.2f°", target.azimuth, target.altitude),
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+    ) {
+        CameraXPreview(
+            modifier = Modifier.fillMaxSize(),
+            onPreviewViewCreated = { _ -> }
+        )
+
+        CelestialOverlayCanvas(
+            calibrator = calibrator,
+            latitude = deviceLatitude,
+            longitude = deviceLongitude,
+            frameTicker = frameTicker,
+            modifier = Modifier.fillMaxSize()
+        )
+
+        TelemetryOverlay(
+            metadata = versionMetadata,
+            lat = deviceLatitude,
+            lon = deviceLongitude,
+            targetAz = moonTarget.azimuth,
+            targetAlt = moonTarget.altitude,
+            offsetAz = currentAzimuthOffset,
+            offsetPitch = currentPitchOffset,
+            offsetRoll = currentRollOffset,
+            modifier = Modifier.align(Alignment.BottomStart)
+        )
+    }
+}
+
