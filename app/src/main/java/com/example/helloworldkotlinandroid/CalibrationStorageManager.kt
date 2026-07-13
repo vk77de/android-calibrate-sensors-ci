@@ -2,17 +2,17 @@ package com.example.helloworldkotlinandroid
 
 import android.content.Context
 import android.util.Log
-import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
+import org.json.JSONObject
 
 data class MoonCalibrationData(
     val timestamp: Long,
     val azimuthOffset: Float,
     val pitchOffset: Float,
     val rollOffset: Float,
-    val targetCelestialBody: String = "Moon",
+    val targetCelestialBody: String = "Moon"
 ) {
     fun toJsonString(): String {
         return """
@@ -23,7 +23,7 @@ data class MoonCalibrationData(
                 "pitch_offset": $pitchOffset,
                 "roll_offset": $rollOffset
             }
-            """.trimIndent()
+        """.trimIndent()
     }
 }
 
@@ -56,7 +56,7 @@ class CalibrationStorageManager(private val context: Context) {
                 azimuthOffset = jsonObject.getDouble("azimuth_offset").toFloat(),
                 pitchOffset = jsonObject.getDouble("pitch_offset").toFloat(),
                 rollOffset = jsonObject.getDouble("roll_offset").toFloat(),
-                targetCelestialBody = jsonObject.optString("target", "Moon"),
+                targetCelestialBody = jsonObject.optString("target", "Moon")
             )
         } catch (e: Exception) {
             Log.e(TAG, "Critical failure reading or decoding calibration JSON payload", e)
@@ -93,4 +93,3 @@ class CalibrationStorageManager(private val context: Context) {
         }
     }
 }
-

@@ -17,10 +17,7 @@ object MoonCalculator {
      * @param lon Device longitude in degrees
      * @return Position object containing Azimuth and Altitude in degrees
      */
-    fun getPosition(
-        lat: Double,
-        lon: Double,
-    ): Position {
+    fun getPosition(lat: Double, lon: Double): Position {
         val cal = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
         val timeMs = cal.timeInMillis
 

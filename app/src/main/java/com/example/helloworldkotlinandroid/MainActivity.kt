@@ -17,18 +17,16 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import androidx.core.content.pm.PackageInfoCompat
-import kotlinx.coroutines.delay
 import java.io.File
 import java.io.FileWriter
 import java.io.PrintWriter
+import kotlinx.coroutines.delay
 
 class MainActivity : ComponentActivity() {
-
     private val celestialCalibrator = CelestialCalibrator()
     private lateinit var storageManager: CalibrationStorageManager
 
@@ -38,7 +36,8 @@ class MainActivity : ComponentActivity() {
             try {
                 val crashFile = File(getExternalFilesDir(null), "crash_dump.txt")
                 PrintWriter(FileWriter(crashFile)).use { throwable.printStackTrace(it) }
-            } catch (e: Exception) { }
+            } catch (e: Exception) {
+            }
             android.os.Process.killProcess(android.os.Process.myPid())
             java.lang.System.exit(10)
         }
@@ -49,16 +48,21 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             var hasPermissions by remember { mutableStateOf(allPermissionsGranted()) }
-            
-            val launcher = rememberLauncherForActivityResult(
-                contract = ActivityResultContracts.RequestMultiplePermissions()
-            ) { permissions ->
-                hasPermissions = permissions.values.all { it }
-                if (!hasPermissions) {
-                    Toast.makeText(this, "Camera and Location permissions are required.", Toast.LENGTH_LONG).show()
-                    finish()
+
+            val launcher =
+                rememberLauncherForActivityResult(
+                    contract = ActivityResultContracts.RequestMultiplePermissions()
+                ) { permissions ->
+                    hasPermissions = permissions.values.all { it }
+                    if (!hasPermissions) {
+                        Toast.makeText(
+                            this,
+                            "Camera and Location permissions are required.",
+                            Toast.LENGTH_LONG
+                        ).show()
+                        finish()
+                    }
                 }
-            }
 
             LaunchedEffect(Unit) {
                 if (!hasPermissions) {
@@ -77,10 +81,11 @@ class MainActivity : ComponentActivity() {
     }
 
     companion object {
-        private val REQUIRED_PERMISSIONS = arrayOf(
-            Manifest.permission.CAMERA,
-            Manifest.permission.ACCESS_FINE_LOCATION
-        )
+        private val REQUIRED_PERMISSIONS =
+            arrayOf(
+                Manifest.permission.CAMERA,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            )
     }
 }
 
@@ -90,7 +95,7 @@ fun CelestialTrackerScreen(
     storageManager: CalibrationStorageManager
 ) {
     val context = LocalContext.current
-    
+
     // --- State Vectors ---
     var deviceLatitude by remember { mutableStateOf(0.0) }
     var deviceLongitude by remember { mutableStateOf(0.0) }
@@ -100,9 +105,10 @@ fun CelestialTrackerScreen(
     var versionMetadata by remember { mutableStateOf("Version metadata unavailable") }
     var frameTicker by remember { mutableStateOf(0L) }
 
-    val moonTarget = remember(deviceLatitude, deviceLongitude, frameTicker) {
-        MoonCalculator.getPosition(deviceLatitude, deviceLongitude)
-    }
+    val moonTarget =
+        remember(deviceLatitude, deviceLongitude, frameTicker) {
+            MoonCalculator.getPosition(deviceLatitude, deviceLongitude)
+        }
 
     // --- High-Performance Compose Invalidations Loop ---
     LaunchedEffect(Unit) {
@@ -115,16 +121,21 @@ fun CelestialTrackerScreen(
     // --- Version Extraction ---
     LaunchedEffect(Unit) {
         try {
-            val packageInfo = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-                context.packageManager.getPackageInfo(context.packageName, PackageManager.PackageInfoFlags.of(0))
-            } else {
-                @Suppress("DEPRECATION")
-                context.packageManager.getPackageInfo(context.packageName, 0)
-            }
+            val packageInfo =
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                    context.packageManager.getPackageInfo(
+                        context.packageName,
+                        PackageManager.PackageInfoFlags.of(0)
+                    )
+                } else {
+                    @Suppress("DEPRECATION")
+                    context.packageManager.getPackageInfo(context.packageName, 0)
+                }
             val versionName = packageInfo.versionName ?: "Unknown"
             val versionCode = PackageInfoCompat.getLongVersionCode(packageInfo)
             versionMetadata = "App Version: $versionName (Build: $versionCode)"
-        } catch (e: Exception) { }
+        } catch (e: Exception) {
+        }
     }
 
     // --- Loading Historical Storage Matrices ---
@@ -133,7 +144,11 @@ fun CelestialTrackerScreen(
             currentAzimuthOffset = saved.azimuthOffset
             currentPitchOffset = saved.pitchOffset
             currentRollOffset = saved.rollOffset
-            calibrator.setCalibrationOffsets(saved.azimuthOffset, saved.pitchOffset, saved.rollOffset)
+            calibrator.setCalibrationOffsets(
+                saved.azimuthOffset,
+                saved.pitchOffset,
+                saved.rollOffset
+            )
         }
     }
 
@@ -141,11 +156,19 @@ fun CelestialTrackerScreen(
     DisposableEffect(Unit) {
         val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
         val rotVectorSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
-        
+
         if (rotVectorSensor == null) {
-            Toast.makeText(context, "Rotation Vector Sensor missing on hardware!", Toast.LENGTH_LONG).show()
+            Toast.makeText(
+                context,
+                "Rotation Vector Sensor missing on hardware!",
+                Toast.LENGTH_LONG
+            ).show()
         } else {
-            sensorManager.registerListener(calibrator, rotVectorSensor, SensorManager.SENSOR_DELAY_UI)
+            sensorManager.registerListener(
+                calibrator,
+                rotVectorSensor,
+                SensorManager.SENSOR_DELAY_UI
+            )
         }
 
         onDispose {
@@ -156,21 +179,35 @@ fun CelestialTrackerScreen(
     // --- Location Pipeline Mounting ---
     DisposableEffect(Unit) {
         val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
-        
-        val locationListener = object : LocationListener {
-            override fun onLocationChanged(location: Location) {
-                deviceLatitude = location.latitude
-                deviceLongitude = location.longitude
+
+        val locationListener =
+            object : LocationListener {
+                override fun onLocationChanged(location: Location) {
+                    deviceLatitude = location.latitude
+                    deviceLongitude = location.longitude
+                }
+
+                override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
+
+                override fun onProviderEnabled(provider: String) {}
+
+                override fun onProviderDisabled(provider: String) {}
             }
-            override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
-            override fun onProviderEnabled(provider: String) {}
-            override fun onProviderDisabled(provider: String) {}
-        }
 
         try {
-            locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 5000L, 5f, locationListener)
-            locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 5000L, 5f, locationListener)
-            
+            locationManager.requestLocationUpdates(
+                LocationManager.GPS_PROVIDER,
+                5000L,
+                5f,
+                locationListener
+            )
+            locationManager.requestLocationUpdates(
+                LocationManager.NETWORK_PROVIDER,
+                5000L,
+                5f,
+                locationListener
+            )
+
             val lastGps = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER)
             val lastNet = locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
             (lastGps ?: lastNet)?.let {
@@ -188,17 +225,23 @@ fun CelestialTrackerScreen(
 
     // --- Main Layout Hierarchy ---
     Box(
-        modifier = Modifier
+        modifier =
+        Modifier
             .fillMaxSize()
             .clickable {
                 if (deviceLatitude == 0.0 && deviceLongitude == 0.0) {
-                    Toast.makeText(context, "Acquiring fresh GPS lock... try again.", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(
+                        context,
+                        "Acquiring fresh GPS lock... try again.",
+                        Toast.LENGTH_SHORT
+                    ).show()
                 } else {
                     val target = MoonCalculator.getPosition(deviceLatitude, deviceLongitude)
-                    val offsets = calibrator.performCelestialCalibration(
-                        target.azimuth.toFloat(),
-                        target.altitude.toFloat()
-                    )
+                    val offsets =
+                        calibrator.performCelestialCalibration(
+                            target.azimuth.toFloat(),
+                            target.altitude.toFloat()
+                        )
 
                     currentAzimuthOffset = offsets[0]
                     currentPitchOffset = offsets[1]
@@ -215,7 +258,11 @@ fun CelestialTrackerScreen(
 
                     Toast.makeText(
                         context,
-                        String.format("Calibrated on Moon!\nAz: %.2f° | Alt: %.2f°", target.azimuth, target.altitude),
+                        String.format(
+                            "Calibrated on Moon!\nAz: %.2f° | Alt: %.2f°",
+                            target.azimuth,
+                            target.altitude
+                        ),
                         Toast.LENGTH_LONG
                     ).show()
                 }
@@ -247,4 +294,3 @@ fun CelestialTrackerScreen(
         )
     }
 }
-

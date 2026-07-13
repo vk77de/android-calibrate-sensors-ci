@@ -1,11 +1,11 @@
 package com.example.helloworldkotlinandroid
 
+import android.graphics.PointF
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.opengl.Matrix
-import android.graphics.PointF
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -21,11 +21,12 @@ class CelestialCalibrator : SensorEventListener {
     }
 
     fun setCalibrationOffsets(az: Float, pt: Float, rl: Float) {
-        val orientationRadians = floatArrayOf(
-            Math.toRadians(az.toDouble()).toFloat(),
-            Math.toRadians(pt.toDouble()).toFloat(),
-            Math.toRadians(rl.toDouble()).toFloat()
-        )
+        val orientationRadians =
+            floatArrayOf(
+                Math.toRadians(az.toDouble()).toFloat(),
+                Math.toRadians(pt.toDouble()).toFloat(),
+                Math.toRadians(rl.toDouble()).toFloat()
+            )
         SensorManager.getRotationMatrixFromVector(calibrationOffsetMatrix, orientationRadians)
         isCalibrated = true
     }
@@ -39,7 +40,14 @@ class CelestialCalibrator : SensorEventListener {
         val invertedSensorMatrix = FloatArray(16)
         Matrix.invertM(invertedSensorMatrix, 0, rawSensorMatrix, 0)
 
-        Matrix.multiplyMM(calibrationOffsetMatrix, 0, trueRotationMatrix, 0, invertedSensorMatrix, 0)
+        Matrix.multiplyMM(
+            calibrationOffsetMatrix,
+            0,
+            trueRotationMatrix,
+            0,
+            invertedSensorMatrix,
+            0
+        )
         isCalibrated = true
 
         val orientationRadians = FloatArray(3)
@@ -48,7 +56,7 @@ class CelestialCalibrator : SensorEventListener {
         return floatArrayOf(
             Math.toDegrees(orientationRadians[0].toDouble()).toFloat(),
             Math.toDegrees(orientationRadians[1].toDouble()).toFloat(),
-            Math.toDegrees(orientationRadians[2].toDouble()).toFloat(),
+            Math.toDegrees(orientationRadians[2].toDouble()).toFloat()
         )
     }
 
@@ -56,7 +64,14 @@ class CelestialCalibrator : SensorEventListener {
         if (event.sensor.type == Sensor.TYPE_ROTATION_VECTOR) {
             SensorManager.getRotationMatrixFromVector(rawSensorMatrix, event.values)
             if (isCalibrated) {
-                Matrix.multiplyMM(calibratedMatrix, 0, calibrationOffsetMatrix, 0, rawSensorMatrix, 0)
+                Matrix.multiplyMM(
+                    calibratedMatrix,
+                    0,
+                    calibrationOffsetMatrix,
+                    0,
+                    rawSensorMatrix,
+                    0
+                )
             } else {
                 System.arraycopy(rawSensorMatrix, 0, calibratedMatrix, 0, 16)
             }
@@ -69,7 +84,7 @@ class CelestialCalibrator : SensorEventListener {
         azimuth: Double,
         altitude: Double,
         width: Int,
-        height: Int,
+        height: Int
     ): PointF? {
         val azRad = Math.toRadians(azimuth)
         val altRad = Math.toRadians(altitude)
@@ -95,4 +110,3 @@ class CelestialCalibrator : SensorEventListener {
         return PointF(screenX, screenY)
     }
 }
-
