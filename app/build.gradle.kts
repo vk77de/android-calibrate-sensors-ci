@@ -3,6 +3,8 @@ plugins {
     id("org.jetbrains.kotlin.android")
     // Register the linting tasks for your CI pipeline
     id("org.jlleitschuh.gradle.ktlint") version "12.1.1"
+    // Apply the Compose Compiler plugin (Kotlin 2.0+)
+    alias(libs.plugins.compose.compiler)
 }
 
 // --- AUTOMATED GIT VERSIONING HELPER ROUTINES ---
@@ -68,6 +70,12 @@ android {
             )
         }
     }
+
+    // Turn on the Compose build feature flag
+    buildFeatures {
+        compose = true
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_1_8
         targetCompatibility = JavaVersion.VERSION_1_8
@@ -91,8 +99,22 @@ dependencies {
     implementation("androidx.camera:camera-lifecycle:$cameraxVersion")
     implementation("androidx.camera:camera-view:$cameraxVersion")
 
+    // Jetpack Compose Dependencies (via Version Catalog BOM)
+    implementation(platform(libs.androidx.compose.bom))
+    implementation(libs.androidx.compose.ui)
+    implementation(libs.androidx.compose.ui.graphics)
+    implementation(libs.androidx.compose.ui.tooling.preview)
+    implementation(libs.androidx.compose.material3)
+    
+    // Core Compose Activity Integration
+    implementation(libs.androidx.activity.compose)
+
+    // Tooling Debug Suites
+    debugImplementation(libs.androidx.compose.ui.tooling)
+
     // Testing Dependencies
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.3")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.4.0")
 }
+
