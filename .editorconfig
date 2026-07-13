@@ -1,6 +1,6 @@
 [*.{kt,kts}]
 # Tells KtLint to follow official Android/Compose style guides
-ktlint_code_style = android
+ktlint_code_style = android_studio
 
 # If your KtLint version is older, this line explicitly shuts up the function-naming rule
 ktlint_standard_function-naming = disabled
