@@ -29,6 +29,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import androidx.core.content.ContextCompat
 import androidx.core.content.pm.PackageInfoCompat
 import androidx.navigation.compose.NavHost
@@ -283,13 +284,15 @@ fun PlanetariumScreen(
             onPreviewViewCreated = { _ -> }
         )
 
-        // 2. Dynamic Stars/Planets Overlay
+        // 2. Dynamic Stars/Planets Overlay (Forced to Render on top with zIndex)
         CelestialOverlayCanvas(
             calibrator = calibrator,
             latitude = latitude,
             longitude = longitude,
             frameTicker = frameTicker,
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier
+                .fillMaxSize()
+                .zIndex(1f)
         )
 
         // 3. Small red reticle icon in the upper right hand corner to switch to calibration mode
@@ -298,6 +301,7 @@ fun PlanetariumScreen(
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .padding(16.dp)
+                .zIndex(2f)
         )
     }
 }
@@ -367,18 +371,22 @@ fun CalibrationScreen(
             onPreviewViewCreated = { _ -> }
         )
 
-        // 2. Dynamic Stars/Planets Overlay
+        // 2. Dynamic Stars/Planets Overlay (Forced to Render on top with zIndex)
         CelestialOverlayCanvas(
             calibrator = calibrator,
             latitude = latitude,
             longitude = longitude,
             frameTicker = frameTicker,
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier
+                .fillMaxSize()
+                .zIndex(1f)
         )
 
         // 3. Central Guiding Reticle
         ReticleOverlay(
-            modifier = Modifier.align(Alignment.Center)
+            modifier = Modifier
+                .align(Alignment.Center)
+                .zIndex(2f)
         )
 
         // 4. Moon Icon in top-right corner to return to the Planetarium mode
@@ -387,6 +395,7 @@ fun CalibrationScreen(
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .padding(16.dp)
+                .zIndex(2f)
         )
 
         // 5. Diagnostics Telemetry Block
@@ -399,7 +408,9 @@ fun CalibrationScreen(
             offsetAz = currentAzimuthOffset,
             offsetPitch = currentPitchOffset,
             offsetRoll = currentRollOffset,
-            modifier = Modifier.align(Alignment.BottomStart)
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .zIndex(2f)
         )
     }
 }

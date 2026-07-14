@@ -118,8 +118,11 @@ fun CelestialOverlayCanvas(
         val width = size.width.toInt()
         val height = size.height.toInt()
 
-        // Supplying ticker hook explicitly isolates frame mutations safely within our block
-        val currentFrame = frameTicker
+        // Defensively reference frameTicker to ensure lambda recapturing.
+        // Doing a runtime evaluation prevents compiler/R8 optimization pruning.
+        if (frameTicker < 0L) {
+            drawCircle(Color.Transparent, 0f)
+        }
 
         val bodies = CelestialObjectsCalculator.getCalibratedObjects(
             effectiveLatitude,
