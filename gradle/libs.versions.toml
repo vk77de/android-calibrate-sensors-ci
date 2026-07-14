@@ -1,5 +1,5 @@
 [versions]
-kotlin = "2.1.0"
+kotlin = "2.4.0"
 # Added versions for the AndroidX and Compose blocks
 composeBom = "2024.06.00"
 activityCompose = "1.9.0"
@@ -15,4 +15,5 @@ androidx-activity-compose = { group = "androidx.activity", name = "activity-comp
 androidx-compose-ui-tooling = { group = "androidx.compose.ui", name = "ui-tooling" }
 
 [plugins]
+# Align the compose compiler to use the same 'kotlin' version reference
 compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
