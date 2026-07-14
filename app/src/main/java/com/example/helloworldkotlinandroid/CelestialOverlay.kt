@@ -11,11 +11,15 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
@@ -91,7 +95,7 @@ fun CelestialOverlayCanvas(
     calibrator: CelestialCalibrator,
     latitude: Double,
     longitude: Double,
-// Mutation driving real-time state invalidation loops
+    // Mutation driving real-time state invalidation loops
     frameTicker: Long,
     modifier: Modifier = Modifier
 ) {
@@ -193,5 +197,60 @@ fun TelemetryOverlay(
             fontSize = 12.sp,
             lineHeight = 16.sp
         )
+    }
+}
+
+@Composable
+fun ReticleOverlay(modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier.size(300.dp)) {
+        // Calculate dynamic scale factors to map the 100x100 viewport to the current canvas bounds
+        val scaleX = size.width / 100f
+        val scaleY = size.height / 100f
+
+        scale(scaleX, scaleY, pivot = Offset.Zero) {
+            // 1. Outer Circle: center (50, 50), radius 35, strokeWidth 0.6
+            drawCircle(
+                color = Color.Red,
+                radius = 35f,
+                center = Offset(50f, 50f),
+                style = Stroke(width = 0.6f)
+            )
+
+            // 2. Inner Circle: center (50, 50), radius 18, strokeWidth 0.4
+            drawCircle(
+                color = Color.Red,
+                radius = 18f,
+                center = Offset(50f, 50f),
+                style = Stroke(width = 0.4f)
+            )
+
+            // 3. Vertical Guide Lines (M 48,0 L 48,100 & M 52,0 L 52,100)
+            drawLine(
+                color = Color.Red,
+                start = Offset(48f, 0f),
+                end = Offset(48f, 100f),
+                strokeWidth = 0.5f
+            )
+            drawLine(
+                color = Color.Red,
+                start = Offset(52f, 0f),
+                end = Offset(52f, 100f),
+                strokeWidth = 0.5f
+            )
+
+            // 4. Horizontal Guide Lines (M 0,48 L 100,48 & M 0,52 L 100,52)
+            drawLine(
+                color = Color.Red,
+                start = Offset(0f, 48f),
+                end = Offset(100f, 48f),
+                strokeWidth = 0.5f
+            )
+            drawLine(
+                color = Color.Red,
+                start = Offset(0f, 52f),
+                end = Offset(100f, 52f),
+                strokeWidth = 0.5f
+            )
+        }
     }
 }

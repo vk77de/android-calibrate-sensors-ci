@@ -268,11 +268,13 @@ fun CelestialTrackerScreen(
                 }
             }
     ) {
+        // 1. Camera Underlay
         CameraXPreview(
             modifier = Modifier.fillMaxSize(),
             onPreviewViewCreated = { _ -> }
         )
 
+        // 2. Dynamic Stars/Planets Overlay
         CelestialOverlayCanvas(
             calibrator = calibrator,
             latitude = deviceLatitude,
@@ -281,6 +283,12 @@ fun CelestialTrackerScreen(
             modifier = Modifier.fillMaxSize()
         )
 
+        // 3. Newly Restored Guiding Reticle (Centered)
+        ReticleOverlay(
+            modifier = Modifier.align(Alignment.Center)
+        )
+
+        // 4. Information Box overlay
         TelemetryOverlay(
             metadata = versionMetadata,
             lat = deviceLatitude,
