@@ -110,7 +110,9 @@ fun CelestialOverlayCanvas(
             }
         }
 
-    if (latitude == 0.0 && longitude == 0.0) return
+    // Fallback to Frankfurt coordinates (50.1109 N, 8.6821 E) if GPS lock has not yet initialized
+    val effectiveLatitude = if (latitude == 0.0 && longitude == 0.0) 50.1109 else latitude
+    val effectiveLongitude = if (latitude == 0.0 && longitude == 0.0) 8.6821 else longitude
 
     Canvas(modifier = modifier.fillMaxSize()) {
         val width = size.width.toInt()
@@ -119,7 +121,10 @@ fun CelestialOverlayCanvas(
         // Supplying ticker hook explicitly isolates frame mutations safely within our block
         val currentFrame = frameTicker
 
-        val bodies = CelestialObjectsCalculator.getCalibratedObjects(latitude, longitude)
+        val bodies = CelestialObjectsCalculator.getCalibratedObjects(
+            effectiveLatitude,
+            effectiveLongitude
+        )
 
         for (body in bodies) {
             val screenPoint: PointF? =
