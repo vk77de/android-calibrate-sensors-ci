@@ -311,7 +311,7 @@ fun CalibrationScreen(
     frameTicker: Long,
     versionMetadata: String,
     // Keep dynamically generated type safety
-    moonTarget: MoonPosition,
+    moonTarget: MoonCalculator.Position,
     currentAzimuthOffset: Float,
     currentPitchOffset: Float,
     currentRollOffset: Float,
