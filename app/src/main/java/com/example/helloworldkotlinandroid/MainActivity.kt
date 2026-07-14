@@ -17,6 +17,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -27,8 +28,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.content.pm.PackageInfoCompat
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import java.io.File
 import java.io.FileWriter
 import java.io.PrintWriter
@@ -103,6 +108,7 @@ fun CelestialTrackerScreen(
     storageManager: CalibrationStorageManager
 ) {
     val context = LocalContext.current
+    val navController = rememberNavController()
 
     // --- State Vectors ---
     var deviceLatitude by remember { mutableStateOf(0.0) }
@@ -112,11 +118,6 @@ fun CelestialTrackerScreen(
     var currentRollOffset by remember { mutableStateOf(0.0f) }
     var versionMetadata by remember { mutableStateOf("Version metadata unavailable") }
     var frameTicker by remember { mutableStateOf(0L) }
-
-    val moonTarget =
-        remember(deviceLatitude, deviceLongitude, frameTicker) {
-            MoonCalculator.getPosition(deviceLatitude, deviceLongitude)
-        }
 
     // --- High-Performance Compose Invalidations Loop ---
     LaunchedEffect(Unit) {
@@ -223,29 +224,121 @@ fun CelestialTrackerScreen(
         }
     }
 
-    // --- Main Layout Hierarchy ---
+    // --- Navigation Layout ---
+    NavHost(navController = navController, startDestination = "planetarium") {
+        composable("planetarium") {
+            PlanetariumScreen(
+                calibrator = calibrator,
+                latitude = deviceLatitude,
+                longitude = deviceLongitude,
+                frameTicker = frameTicker,
+                onNavigateToCalibration = {
+                    navController.navigate("calibration")
+                }
+            )
+        }
+        composable("calibration") {
+            val moonTarget = remember(deviceLatitude, deviceLongitude, frameTicker) {
+                MoonCalculator.getPosition(deviceLatitude, deviceLongitude)
+            }
+
+            CalibrationScreen(
+                calibrator = calibrator,
+                storageManager = storageManager,
+                latitude = deviceLatitude,
+                longitude = deviceLongitude,
+                frameTicker = frameTicker,
+                versionMetadata = versionMetadata,
+                moonTarget = moonTarget,
+                currentAzimuthOffset = currentAzimuthOffset,
+                currentPitchOffset = currentPitchOffset,
+                currentRollOffset = currentRollOffset,
+                onUpdateOffsets = { az, pitch, roll ->
+                    currentAzimuthOffset = az
+                    currentPitchOffset = pitch
+                    currentRollOffset = roll
+                },
+                onNavigateToPlanetarium = {
+                    navController.navigate("planetarium") {
+                        popUpTo("planetarium") { inclusive = true }
+                    }
+                }
+            )
+        }
+    }
+}
+
+@Composable
+fun PlanetariumScreen(
+    calibrator: CelestialCalibrator,
+    latitude: Double,
+    longitude: Double,
+    frameTicker: Long,
+    onNavigateToCalibration: () -> Unit
+) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        // 1. Camera Underlay
+        CameraXPreview(
+            modifier = Modifier.fillMaxSize(),
+            onPreviewViewCreated = { _ -> }
+        )
+
+        // 2. Dynamic Stars/Planets Overlay
+        CelestialOverlayCanvas(
+            calibrator = calibrator,
+            latitude = latitude,
+            longitude = longitude,
+            frameTicker = frameTicker,
+            modifier = Modifier.fillMaxSize()
+        )
+
+        // 3. Small red reticle icon in the upper right hand corner to switch to calibration mode
+        ReticleIcon(
+            onClick = onNavigateToCalibration,
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(16.dp)
+        )
+    }
+}
+
+@Composable
+fun CalibrationScreen(
+    calibrator: CelestialCalibrator,
+    storageManager: CalibrationStorageManager,
+    latitude: Double,
+    longitude: Double,
+    frameTicker: Long,
+    versionMetadata: String,
+    // Keep dynamically generated type safety
+    moonTarget: MoonPosition,
+    currentAzimuthOffset: Float,
+    currentPitchOffset: Float,
+    currentRollOffset: Float,
+    onUpdateOffsets: (Float, Float, Float) -> Unit,
+    onNavigateToPlanetarium: () -> Unit
+) {
+    val context = LocalContext.current
+
     Box(
-        modifier =
-        Modifier
+        modifier = Modifier
             .fillMaxSize()
             .clickable {
-                if (deviceLatitude == 0.0 && deviceLongitude == 0.0) {
+                if (latitude == 0.0 && longitude == 0.0) {
                     Toast.makeText(
                         context,
                         "Acquiring fresh GPS lock... try again.",
                         Toast.LENGTH_SHORT
                     ).show()
                 } else {
-                    val target = MoonCalculator.getPosition(deviceLatitude, deviceLongitude)
+                    val target = MoonCalculator.getPosition(latitude, longitude)
                     val offsets =
                         calibrator.performCelestialCalibration(
                             target.azimuth.toFloat(),
                             target.altitude.toFloat()
                         )
 
-                    currentAzimuthOffset = offsets[0]
-                    currentPitchOffset = offsets[1]
-                    currentRollOffset = offsets[2]
+                    onUpdateOffsets(offsets[0], offsets[1], offsets[2])
 
                     storageManager.writeCalibrationToAllStorages(
                         MoonCalibrationData(
@@ -277,22 +370,30 @@ fun CelestialTrackerScreen(
         // 2. Dynamic Stars/Planets Overlay
         CelestialOverlayCanvas(
             calibrator = calibrator,
-            latitude = deviceLatitude,
-            longitude = deviceLongitude,
+            latitude = latitude,
+            longitude = longitude,
             frameTicker = frameTicker,
             modifier = Modifier.fillMaxSize()
         )
 
-        // 3. Newly Restored Guiding Reticle (Centered)
+        // 3. Central Guiding Reticle
         ReticleOverlay(
             modifier = Modifier.align(Alignment.Center)
         )
 
-        // 4. Information Box overlay
+        // 4. Moon Icon in top-right corner to return to the Planetarium mode
+        MoonIcon(
+            onClick = onNavigateToPlanetarium,
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(16.dp)
+        )
+
+        // 5. Diagnostics Telemetry Block
         TelemetryOverlay(
             metadata = versionMetadata,
-            lat = deviceLatitude,
-            lon = deviceLongitude,
+            lat = latitude,
+            lon = longitude,
             targetAz = moonTarget.azimuth,
             targetAlt = moonTarget.altitude,
             offsetAz = currentAzimuthOffset,

@@ -7,6 +7,7 @@ import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -18,6 +19,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.nativeCanvas
@@ -251,6 +253,85 @@ fun ReticleOverlay(modifier: Modifier = Modifier) {
                 end = Offset(100f, 52f),
                 strokeWidth = 0.5f
             )
+        }
+    }
+}
+
+@Composable
+fun ReticleIcon(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .size(48.dp)
+            .clickable(onClick = onClick)
+            .padding(8.dp)
+    ) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val center = Offset(size.width / 2f, size.height / 2f)
+            val radius = size.minDimension / 2f
+
+            // Outer Circle
+            drawCircle(
+                color = Color.Red,
+                radius = radius * 0.8f,
+                style = Stroke(width = 2f)
+            )
+
+            // Inner Circle
+            drawCircle(
+                color = Color.Red,
+                radius = radius * 0.4f,
+                style = Stroke(width = 1.5f)
+            )
+
+            // Vertical Crosshair line
+            drawLine(
+                color = Color.Red,
+                start = Offset(center.x, 0f),
+                end = Offset(center.x, size.height),
+                strokeWidth = 1.5f
+            )
+
+            // Horizontal Crosshair line
+            drawLine(
+                color = Color.Red,
+                start = Offset(0f, center.y),
+                end = Offset(size.width, center.y),
+                strokeWidth = 1.5f
+            )
+        }
+    }
+}
+
+@Composable
+fun MoonIcon(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .size(48.dp)
+            .clickable(onClick = onClick)
+            .padding(8.dp)
+    ) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val path = Path().apply {
+                moveTo(size.width * 0.65f, size.height * 0.15f)
+                cubicTo(
+                    size.width * 0.15f,
+                    size.height * 0.2f,
+                    size.width * 0.15f,
+                    size.height * 0.8f,
+                    size.width * 0.65f,
+                    size.height * 0.85f
+                )
+                cubicTo(
+                    size.width * 0.4f,
+                    size.height * 0.7f,
+                    size.width * 0.4f,
+                    size.height * 0.3f,
+                    size.width * 0.65f,
+                    size.height * 0.15f
+                )
+                close()
+            }
+            drawPath(path = path, color = Color(0xFFEAEAEA))
         }
     }
 }
