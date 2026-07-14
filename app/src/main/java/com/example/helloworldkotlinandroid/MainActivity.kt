@@ -17,8 +17,16 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import androidx.core.content.pm.PackageInfoCompat
 import java.io.File
@@ -121,16 +129,8 @@ fun CelestialTrackerScreen(
     // --- Version Extraction ---
     LaunchedEffect(Unit) {
         try {
-            val packageInfo =
-                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-                    context.packageManager.getPackageInfo(
-                        context.packageName,
-                        PackageManager.PackageInfoFlags.of(0)
-                    )
-                } else {
-                    @Suppress("DEPRECATION")
-                    context.packageManager.getPackageInfo(context.packageName, 0)
-                }
+            @Suppress("DEPRECATION")
+            val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
             val versionName = packageInfo.versionName ?: "Unknown"
             val versionCode = PackageInfoCompat.getLongVersionCode(packageInfo)
             versionMetadata = "App Version: $versionName (Build: $versionCode)"
