@@ -6,4 +6,8 @@
     </style>
 
     <style name="Theme.HelloWorldKotlinAndroid" parent="Base.Theme.HelloWorldKotlinAndroid" />
+
+    <!-- Exact theme name expected by the Android Manifest -->
+    <style name="Theme.HelloWorldKotlinAndroid.NoActionBar" parent="Base.Theme.HelloWorldKotlinAndroid" />
 </resources>
+
