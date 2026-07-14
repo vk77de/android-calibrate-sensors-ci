@@ -7,6 +7,13 @@ plugins {
     alias(libs.plugins.compose.compiler)
 }
 
+// Modern Kotlin compiler configuration (replaces old kotlinOptions)
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_1_8)
+    }
+}
+
 // --- AUTOMATED GIT VERSIONING HELPER ROUTINES ---
 fun getGitCommitCount(): Int {
     return try {
@@ -79,9 +86,6 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_1_8
         targetCompatibility = JavaVersion.VERSION_1_8
-    }
-    kotlinOptions {
-        jvmTarget = "1.8"
     }
 }
 
