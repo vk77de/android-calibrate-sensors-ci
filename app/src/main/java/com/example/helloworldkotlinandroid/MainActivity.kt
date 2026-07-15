@@ -16,6 +16,12 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -23,7 +29,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.content.pm.PackageInfoCompat
 import androidx.navigation.compose.NavHost
@@ -40,9 +50,7 @@ import kotlinx.coroutines.delay
  */
 class SmoothedSensorEventListener(
     private val delegate: SensorEventListener,
-    // Adjust between 0.05
-    // (slower/smoother) and
-    // 0.25 (faster/jitterier)
+    // Adjust between 0.05 (slower/smoother) and 0.25 (faster/jitterier)
     private val alpha: Float = 0.12f
 ) : SensorEventListener {
     private var smoothedValues: FloatArray? = null
@@ -280,7 +288,7 @@ fun CelestialTrackerScreen(
                 currentAzimuthOffset = currentAzimuthOffset,
                 currentPitchOffset = currentPitchOffset,
                 currentRollOffset = currentRollOffset,
-                onUpdateOffsets = { az, pitch, roll ->
+                onUpdateOffsets = { az: Float, pitch: Float, roll: Float ->
                     currentAzimuthOffset = az
                     currentPitchOffset = pitch
                     currentRollOffset = roll
@@ -290,6 +298,59 @@ fun CelestialTrackerScreen(
                         popUpTo("planetarium") { inclusive = true }
                     }
                 }
+            )
+        }
+    }
+}
+
+/**
+ * Planetarium view integrating the device camera background,
+ * active celestial body projections, and navigation controls.
+ */
+@Composable
+fun PlanetariumScreen(
+    calibrator: CelestialCalibrator,
+    latitude: Double,
+    longitude: Double,
+    frameTicker: Long,
+    onNavigateToCalibration: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(modifier = modifier.fillMaxSize()) {
+        // 1. Camera live preview background
+        CameraXPreview(modifier = Modifier.fillMaxSize()) { _ -> }
+
+        // 2. Calculated celestial overlay (Stars, Planets, Coordinates)
+        CelestialOverlayCanvas(
+            calibrator = calibrator,
+            latitude = latitude,
+            longitude = longitude,
+            frameTicker = frameTicker,
+            modifier = Modifier.fillMaxSize()
+        )
+
+        // 3. Centered Reticle overlay target
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .wrapContentSize(Alignment.Center)
+        ) {
+            ReticleOverlay()
+        }
+
+        // 4. Calibration Nav Action Button (bottom right)
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(24.dp),
+            contentAlignment = Alignment.BottomEnd
+        ) {
+            ReticleIcon(
+                onClick = onNavigateToCalibration,
+                modifier = Modifier.background(
+                    color = Color.Black.copy(alpha = 0.5f),
+                    shape = CircleShape
+                )
             )
         }
     }
