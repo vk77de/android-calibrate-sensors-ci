@@ -348,7 +348,7 @@ fun MoonIcon(onClick: () -> Unit, modifier: Modifier = Modifier) {
 }
 
 /**
- * Robust reflection helper to extract azimuth and altitude properties safely 
+ * Robust reflection helper to extract azimuth and altitude properties safely
  * from the moon target object without running into type reference errors.
  */
 private fun getDoubleProperty(obj: Any?, propName: String): Double {
@@ -356,8 +356,8 @@ private fun getDoubleProperty(obj: Any?, propName: String): Double {
     return try {
         val capitalized = propName.substring(0, 1).uppercase() + propName.substring(1)
         val getterName = "get$capitalized"
-        val method = obj.javaClass.methods.firstOrNull { 
-            it.name == getterName || it.name == propName 
+        val method = obj.javaClass.methods.firstOrNull {
+            it.name == getterName || it.name == propName
         }
         val value = method?.invoke(obj) ?: 0.0
         (value as Number).toDouble()
@@ -374,7 +374,8 @@ fun CalibrationScreen(
     longitude: Double,
     frameTicker: Long,
     versionMetadata: String,
-    moonTarget: Any?, // Decoupled using Any? for maximum safety
+                             // Decoupled using Any? for maximum safety
+    moonTarget: Any?,
     currentAzimuthOffset: Float,
     currentPitchOffset: Float,
     currentRollOffset: Float,
