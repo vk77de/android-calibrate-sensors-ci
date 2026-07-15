@@ -374,7 +374,7 @@ fun CalibrationScreen(
     longitude: Double,
     frameTicker: Long,
     versionMetadata: String,
-                             // Decoupled using Any? for maximum safety
+    // Decoupled using Any? for maximum safety
     moonTarget: Any?,
     currentAzimuthOffset: Float,
     currentPitchOffset: Float,
