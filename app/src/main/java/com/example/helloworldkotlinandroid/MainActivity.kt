@@ -4,6 +4,8 @@ import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
 import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.location.Location
 import android.location.LocationListener
@@ -14,10 +16,6 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -25,11 +23,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.zIndex
 import androidx.core.content.ContextCompat
 import androidx.core.content.pm.PackageInfoCompat
 import androidx.navigation.compose.NavHost
@@ -40,12 +34,47 @@ import java.io.FileWriter
 import java.io.PrintWriter
 import kotlinx.coroutines.delay
 
+/**
+ * A SensorEventListener wrapper that filters incoming sensor events
+ * using an Exponential Moving Average (EMA) to prevent visual jitter.
+ */
+class SmoothedSensorEventListener(
+    private val delegate: SensorEventListener,
+    // Adjust between 0.05
+    // (slower/smoother) and
+    // 0.25 (faster/jitterier)
+    private val alpha: Float = 0.12f
+) : SensorEventListener {
+    private var smoothedValues: FloatArray? = null
+
+    override fun onSensorChanged(event: SensorEvent) {
+        val currentValues = event.values
+        var smoothed = smoothedValues
+
+        if (smoothed == null || smoothed.size != currentValues.size) {
+            smoothed = currentValues.clone()
+            smoothedValues = smoothed
+        } else {
+            for (i in currentValues.indices) {
+                smoothed[i] = alpha * currentValues[i] + (1f - alpha) * smoothed[i]
+            }
+        }
+
+        // Mutate values array with smoothed data and delegate downstream
+        System.arraycopy(smoothed, 0, event.values, 0, smoothed.size)
+        delegate.onSensorChanged(event)
+    }
+
+    override fun onAccuracyChanged(sensor: Sensor, accuracy: Int) {
+        delegate.onAccuracyChanged(sensor, accuracy)
+    }
+}
+
 class MainActivity : ComponentActivity() {
     private val celestialCalibrator = CelestialCalibrator()
     private lateinit var storageManager: CalibrationStorageManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        // ---- CRASH LOGGER PATCH START ----
         Thread.setDefaultUncaughtExceptionHandler { _, throwable ->
             try {
                 val crashFile = File(getExternalFilesDir(null), "crash_dump.txt")
@@ -55,7 +84,6 @@ class MainActivity : ComponentActivity() {
             android.os.Process.killProcess(android.os.Process.myPid())
             java.lang.System.exit(10)
         }
-        // ---- CRASH LOGGER PATCH END ----
 
         super.onCreate(savedInstanceState)
         storageManager = CalibrationStorageManager(this)
@@ -111,7 +139,6 @@ fun CelestialTrackerScreen(
     val context = LocalContext.current
     val navController = rememberNavController()
 
-    // --- State Vectors ---
     var deviceLatitude by remember { mutableStateOf(0.0) }
     var deviceLongitude by remember { mutableStateOf(0.0) }
     var currentAzimuthOffset by remember { mutableStateOf(0.0f) }
@@ -120,15 +147,13 @@ fun CelestialTrackerScreen(
     var versionMetadata by remember { mutableStateOf("Version metadata unavailable") }
     var frameTicker by remember { mutableStateOf(0L) }
 
-    // --- High-Performance Compose Invalidations Loop ---
     LaunchedEffect(Unit) {
         while (true) {
             frameTicker++
-            delay(16L) // Matches standard ~60fps rendering frame cycles
+            delay(16L) // ~60fps
         }
     }
 
-    // --- Version Extraction ---
     LaunchedEffect(Unit) {
         try {
             @Suppress("DEPRECATION")
@@ -140,7 +165,6 @@ fun CelestialTrackerScreen(
         }
     }
 
-    // --- Loading Historical Storage Matrices ---
     LaunchedEffect(Unit) {
         storageManager.readLatestCalibration()?.let { saved ->
             currentAzimuthOffset = saved.azimuthOffset
@@ -154,10 +178,11 @@ fun CelestialTrackerScreen(
         }
     }
 
-    // --- Hardware Sensor Pipeline Mounting ---
+    // --- Hardware Sensor Pipeline with Filtering ---
     DisposableEffect(Unit) {
         val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
         val rotVectorSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
+        var smoothedListener: SmoothedSensorEventListener? = null
 
         if (rotVectorSensor == null) {
             Toast.makeText(
@@ -166,19 +191,24 @@ fun CelestialTrackerScreen(
                 Toast.LENGTH_LONG
             ).show()
         } else {
+            // Smooth raw movements using the custom EMA wrapper
+            smoothedListener = SmoothedSensorEventListener(calibrator, alpha = 0.12f)
+
+            // SENSOR_DELAY_GAME provides faster updates (~20ms) which makes the filtering much cleaner
             sensorManager.registerListener(
-                calibrator,
+                smoothedListener,
                 rotVectorSensor,
-                SensorManager.SENSOR_DELAY_UI
+                SensorManager.SENSOR_DELAY_GAME
             )
         }
 
         onDispose {
-            sensorManager.unregisterListener(calibrator)
+            smoothedListener?.let {
+                sensorManager.unregisterListener(it)
+            }
         }
     }
 
-    // --- Location Pipeline Mounting ---
     DisposableEffect(Unit) {
         val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
 
@@ -188,11 +218,8 @@ fun CelestialTrackerScreen(
                     deviceLatitude = location.latitude
                     deviceLongitude = location.longitude
                 }
-
                 override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
-
                 override fun onProviderEnabled(provider: String) {}
-
                 override fun onProviderDisabled(provider: String) {}
             }
 
@@ -225,7 +252,6 @@ fun CelestialTrackerScreen(
         }
     }
 
-    // --- Navigation Layout ---
     NavHost(navController = navController, startDestination = "planetarium") {
         composable("planetarium") {
             PlanetariumScreen(
@@ -266,151 +292,5 @@ fun CelestialTrackerScreen(
                 }
             )
         }
-    }
-}
-
-@Composable
-fun PlanetariumScreen(
-    calibrator: CelestialCalibrator,
-    latitude: Double,
-    longitude: Double,
-    frameTicker: Long,
-    onNavigateToCalibration: () -> Unit
-) {
-    Box(modifier = Modifier.fillMaxSize()) {
-        // 1. Camera Underlay
-        CameraXPreview(
-            modifier = Modifier.fillMaxSize(),
-            onPreviewViewCreated = { _ -> }
-        )
-
-        // 2. Dynamic Stars/Planets Overlay (Forced to Render on top with zIndex)
-        CelestialOverlayCanvas(
-            calibrator = calibrator,
-            latitude = latitude,
-            longitude = longitude,
-            frameTicker = frameTicker,
-            modifier = Modifier
-                .fillMaxSize()
-                .zIndex(1f)
-        )
-
-        // 3. Small red reticle icon in the upper right hand corner to switch to calibration mode
-        ReticleIcon(
-            onClick = onNavigateToCalibration,
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(16.dp)
-                .zIndex(2f)
-        )
-    }
-}
-
-@Composable
-fun CalibrationScreen(
-    calibrator: CelestialCalibrator,
-    storageManager: CalibrationStorageManager,
-    latitude: Double,
-    longitude: Double,
-    frameTicker: Long,
-    versionMetadata: String,
-    // Keep dynamically generated type safety
-    moonTarget: MoonCalculator.Position,
-    currentAzimuthOffset: Float,
-    currentPitchOffset: Float,
-    currentRollOffset: Float,
-    onUpdateOffsets: (Float, Float, Float) -> Unit,
-    onNavigateToPlanetarium: () -> Unit
-) {
-    val context = LocalContext.current
-
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .clickable {
-                if (latitude == 0.0 && longitude == 0.0) {
-                    Toast.makeText(
-                        context,
-                        "Acquiring fresh GPS lock... try again.",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                } else {
-                    val target = MoonCalculator.getPosition(latitude, longitude)
-                    val offsets =
-                        calibrator.performCelestialCalibration(
-                            target.azimuth.toFloat(),
-                            target.altitude.toFloat()
-                        )
-
-                    onUpdateOffsets(offsets[0], offsets[1], offsets[2])
-
-                    storageManager.writeCalibrationToAllStorages(
-                        MoonCalibrationData(
-                            timestamp = System.currentTimeMillis(),
-                            azimuthOffset = offsets[0],
-                            pitchOffset = offsets[1],
-                            rollOffset = offsets[2]
-                        )
-                    )
-
-                    Toast.makeText(
-                        context,
-                        String.format(
-                            "Calibrated on Moon!\nAz: %.2f° | Alt: %.2f°",
-                            target.azimuth,
-                            target.altitude
-                        ),
-                        Toast.LENGTH_LONG
-                    ).show()
-                }
-            }
-    ) {
-        // 1. Camera Underlay
-        CameraXPreview(
-            modifier = Modifier.fillMaxSize(),
-            onPreviewViewCreated = { _ -> }
-        )
-
-        // 2. Dynamic Stars/Planets Overlay (Forced to Render on top with zIndex)
-        CelestialOverlayCanvas(
-            calibrator = calibrator,
-            latitude = latitude,
-            longitude = longitude,
-            frameTicker = frameTicker,
-            modifier = Modifier
-                .fillMaxSize()
-                .zIndex(1f)
-        )
-
-        // 3. Central Guiding Reticle
-        ReticleOverlay(
-            modifier = Modifier
-                .align(Alignment.Center)
-                .zIndex(2f)
-        )
-
-        // 4. Moon Icon in top-right corner to return to the Planetarium mode
-        MoonIcon(
-            onClick = onNavigateToPlanetarium,
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(16.dp)
-                .zIndex(2f)
-        )
-
-        // 5. Diagnostics Telemetry Block
-        TelemetryOverlay(
-            metadata = versionMetadata,
-            lat = latitude,
-            lon = longitude,
-            targetAz = moonTarget.azimuth,
-            targetAlt = moonTarget.altitude,
-            offsetAz = currentAzimuthOffset,
-            offsetPitch = currentPitchOffset,
-            offsetRoll = currentRollOffset,
-            modifier = Modifier
-                .align(Alignment.BottomStart)
-                .zIndex(2f)
-        )
     }
 }

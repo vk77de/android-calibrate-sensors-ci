@@ -15,6 +15,66 @@ object CelestialObjectsCalculator {
         val altitude: Double
     )
 
+    private data class StarData(
+        val name: String,
+        val ra: Double,
+        val dec: Double
+    )
+
+    // Expanded Database of Bright Stars to ensure sky density across hemispheres
+    private val StarCatalog = listOf(
+        // Classic Bright Stars
+        StarData("Sirius", 101.287, -16.716),
+        StarData("Canopus", 95.987, -52.697),
+        StarData("Alpha Centauri", 219.902, -60.833),
+        StarData("Arcturus", 213.915, 19.182),
+        StarData("Vega", 279.234, 38.783),
+        StarData("Capella", 79.172, 45.998),
+        StarData("Rigel", 78.634, -8.201),
+        StarData("Procyon", 114.825, 5.224),
+        StarData("Achernar", 24.428, -57.236),
+        StarData("Betelgeuse", 88.792, 7.407),
+        StarData("Altair", 297.695, 8.868),
+        StarData("Aldebaran", 68.980, 16.509),
+        StarData("Spica", 201.298, -11.161),
+        StarData("Antares", 247.351, -26.432),
+        StarData("Pollux", 116.328, 28.026),
+        StarData("Fomalhaut", 344.412, -29.622),
+        StarData("Deneb", 310.357, 45.280),
+        StarData("Regulus", 152.093, 11.967),
+        StarData("Castor", 113.650, 31.888),
+        StarData("Bellatrix", 81.282, 6.349),
+        StarData("Elnath", 81.572, 28.602),
+        StarData("Alnilam", 84.053, -1.201),
+
+        // --- Northern Constellations (Always Visible in the North) ---
+        // The North Star
+        StarData("Polaris", 37.950, 89.264),
+        // Ursa Major (Pointer Star)
+        StarData("Dubhe", 165.930, 61.751),
+        // Ursa Major (Pointer Star)
+        StarData("Merak", 165.460, 56.382),
+        // Ursa Major
+        StarData("Phecda", 178.450, 53.698),
+        // Ursa Major
+        StarData("Megrez", 183.040, 57.032),
+        // Ursa Major
+        StarData("Alioth", 194.270, 55.960),
+        // Ursa Major
+        StarData("Mizar", 200.980, 54.918),
+        // Ursa Major
+        StarData("Alkaid", 206.880, 49.314)
+
+    )
+
+    private val DeepSpaceCatalog = listOf(
+        StarData("Sagittarius A*", 266.417, -29.008),
+        StarData("Great Attractor", 200.000, -44.000),
+        StarData("Shapley Attractor", 201.250, -31.000),
+        StarData("Dipole Repeller", 318.500, 17.000),
+        StarData("Cold Spot Repeller", 48.750, -19.500)
+    )
+
     fun getCalibratedObjects(lat: Double, lon: Double): List<TargetBody> {
         val cal = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
         val timeMs = cal.timeInMillis
@@ -30,170 +90,50 @@ object CelestialObjectsCalculator {
 
         val list = mutableListOf<TargetBody>()
 
+        // 1. Moon
         val moonPos = MoonCalculator.getPosition(lat, lon)
         list.add(TargetBody("Moon", moonPos.azimuth, moonPos.altitude))
 
-        list.add(
-            TargetBody(
-                "Sirius",
-                computeAltAz(101.287, -16.716, lat, lst).azimuth,
-                computeAltAz(101.287, -16.716, lat, lst).altitude
-            )
-        )
-        list.add(
-            TargetBody(
-                "Arcturus",
-                computeAltAz(213.915, 19.182, lat, lst).azimuth,
-                computeAltAz(213.915, 19.182, lat, lst).altitude
-            )
-        )
-
-        val venusRa = (244.19 + 0.9856 * d) % 360
-        val venusDec = -22.0 * cos(Math.toRadians(venusRa))
-        list.add(
-            TargetBody(
+        // 2. Planets (Dynamic Rough Linear Projections)
+        val planets = listOf(
+            Triple(
                 "Venus",
-                computeAltAz(venusRa, venusDec, lat, lst).azimuth,
-                computeAltAz(venusRa, venusDec, lat, lst).altitude
-            )
-        )
-
-        val jupiterRa = (304.02 + 0.0831 * d) % 360
-        val jupiterDec = -19.5 * cos(Math.toRadians(jupiterRa))
-        list.add(
-            TargetBody(
+                (244.19 + 0.9856 * d) % 360,
+                -22.0 * cos(Math.toRadians((244.19 + 0.9856 * d) % 360))
+            ),
+            Triple(
                 "Jupiter",
-                computeAltAz(jupiterRa, jupiterDec, lat, lst).azimuth,
-                computeAltAz(jupiterRa, jupiterDec, lat, lst).altitude
-            )
-        )
-
-        val marsRa = (355.43 + 191.399 * (d / 365.25)) % 360
-        val marsDec = 24.0 * sin(Math.toRadians(marsRa))
-        list.add(
-            TargetBody(
+                (304.02 + 0.0831 * d) % 360,
+                -19.5 * cos(Math.toRadians((304.02 + 0.0831 * d) % 360))
+            ),
+            Triple(
                 "Mars",
-                computeAltAz(marsRa, marsDec, lat, lst).azimuth,
-                computeAltAz(marsRa, marsDec, lat, lst).altitude
-            )
-        )
-
-        val saturnRa = (49.95 + 12.221 * (d / 365.25)) % 360
-        val saturnDec = 2.5 * sin(Math.toRadians(saturnRa))
-        list.add(
-            TargetBody(
+                (355.43 + 191.399 * (d / 365.25)) % 360,
+                24.0 * sin(Math.toRadians((355.43 + 191.399 * (d / 365.25)) % 360))
+            ),
+            Triple(
                 "Saturn",
-                computeAltAz(saturnRa, saturnDec, lat, lst).azimuth,
-                computeAltAz(saturnRa, saturnDec, lat, lst).altitude
+                (49.95 + 12.221 * (d / 365.25)) % 360,
+                2.5 * sin(Math.toRadians((49.95 + 12.221 * (d / 365.25)) % 360))
             )
         )
 
-        list.add(
-            TargetBody(
-                "Canopus",
-                computeAltAz(95.987, -52.697, lat, lst).azimuth,
-                computeAltAz(95.987, -52.697, lat, lst).altitude
-            )
-        )
-        list.add(
-            TargetBody(
-                "Alpha Centauri",
-                computeAltAz(219.902, -60.833, lat, lst).azimuth,
-                computeAltAz(219.902, -60.833, lat, lst).altitude
-            )
-        )
-        list.add(
-            TargetBody(
-                "Vega",
-                computeAltAz(279.234, 38.783, lat, lst).azimuth,
-                computeAltAz(279.234, 38.783, lat, lst).altitude
-            )
-        )
-        list.add(
-            TargetBody(
-                "Capella",
-                computeAltAz(79.172, 45.998, lat, lst).azimuth,
-                computeAltAz(79.172, 45.998, lat, lst).altitude
-            )
-        )
-        list.add(
-            TargetBody(
-                "Rigel",
-                computeAltAz(78.634, -8.201, lat, lst).azimuth,
-                computeAltAz(78.634, -8.201, lat, lst).altitude
-            )
-        )
-        list.add(
-            TargetBody(
-                "Procyon",
-                computeAltAz(114.825, 5.224, lat, lst).azimuth,
-                computeAltAz(114.825, 5.224, lat, lst).altitude
-            )
-        )
-        list.add(
-            TargetBody(
-                "Achernar",
-                computeAltAz(24.428, -57.236, lat, lst).azimuth,
-                computeAltAz(24.428, -57.236, lat, lst).altitude
-            )
-        )
-        list.add(
-            TargetBody(
-                "Betelgeuse",
-                computeAltAz(88.792, 7.407, lat, lst).azimuth,
-                computeAltAz(88.792, 7.407, lat, lst).altitude
-            )
-        )
-        list.add(
-            TargetBody(
-                "Altair",
-                computeAltAz(297.695, 8.868, lat, lst).azimuth,
-                computeAltAz(297.695, 8.868, lat, lst).altitude
-            )
-        )
-        list.add(
-            TargetBody(
-                "Aldebaran",
-                computeAltAz(68.980, 16.509, lat, lst).azimuth,
-                computeAltAz(68.980, 16.509, lat, lst).altitude
-            )
-        )
+        for ((name, ra, dec) in planets) {
+            val pos = computeAltAz(ra, dec, lat, lst)
+            list.add(TargetBody(name, pos.azimuth, pos.altitude))
+        }
 
-        list.add(
-            TargetBody(
-                "Sagittarius A*",
-                computeAltAz(266.417, -29.008, lat, lst).azimuth,
-                computeAltAz(266.417, -29.008, lat, lst).altitude
-            )
-        )
-        list.add(
-            TargetBody(
-                "Great Attractor",
-                computeAltAz(200.000, -44.000, lat, lst).azimuth,
-                computeAltAz(200.000, -44.000, lat, lst).altitude
-            )
-        )
-        list.add(
-            TargetBody(
-                "Shapley Attractor",
-                computeAltAz(201.250, -31.000, lat, lst).azimuth,
-                computeAltAz(201.250, -31.000, lat, lst).altitude
-            )
-        )
-        list.add(
-            TargetBody(
-                "Dipole Repeller",
-                computeAltAz(318.500, 17.000, lat, lst).azimuth,
-                computeAltAz(318.500, 17.000, lat, lst).altitude
-            )
-        )
-        list.add(
-            TargetBody(
-                "Cold Spot Repeller",
-                computeAltAz(48.750, -19.500, lat, lst).azimuth,
-                computeAltAz(48.750, -19.500, lat, lst).altitude
-            )
-        )
+        // 3. Stars (Avoiding redundant calculations)
+        for (star in StarCatalog) {
+            val pos = computeAltAz(star.ra, star.dec, lat, lst)
+            list.add(TargetBody(star.name, pos.azimuth, pos.altitude))
+        }
+
+        // 4. Deep Space Structures
+        for (anomaly in DeepSpaceCatalog) {
+            val pos = computeAltAz(anomaly.ra, anomaly.dec, lat, lst)
+            list.add(TargetBody(anomaly.name, pos.azimuth, pos.altitude))
+        }
 
         return list
     }
