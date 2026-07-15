@@ -13,9 +13,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -340,6 +343,128 @@ fun MoonIcon(onClick: () -> Unit, modifier: Modifier = Modifier) {
                 close()
             }
             drawPath(path = path, color = Color(0xFFEAEAEA))
+        }
+    }
+}
+
+/**
+ * Robust reflection helper to extract azimuth and altitude properties safely 
+ * from the moon target object without running into type reference errors.
+ */
+private fun getDoubleProperty(obj: Any?, propName: String): Double {
+    if (obj == null) return 0.0
+    return try {
+        val capitalized = propName.substring(0, 1).uppercase() + propName.substring(1)
+        val getterName = "get$capitalized"
+        val method = obj.javaClass.methods.firstOrNull { 
+            it.name == getterName || it.name == propName 
+        }
+        val value = method?.invoke(obj) ?: 0.0
+        (value as Number).toDouble()
+    } catch (e: Exception) {
+        0.0
+    }
+}
+
+@Composable
+fun CalibrationScreen(
+    calibrator: CelestialCalibrator,
+    storageManager: CalibrationStorageManager,
+    latitude: Double,
+    longitude: Double,
+    frameTicker: Long,
+    versionMetadata: String,
+    moonTarget: Any?, // Decoupled using Any? for maximum safety
+    currentAzimuthOffset: Float,
+    currentPitchOffset: Float,
+    currentRollOffset: Float,
+    onUpdateOffsets: (Float, Float, Float) -> Unit,
+    onNavigateToPlanetarium: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val targetAz = getDoubleProperty(moonTarget, "azimuth")
+    val targetAlt = getDoubleProperty(moonTarget, "altitude")
+
+    Box(modifier = modifier.fillMaxSize()) {
+        // 1. Camera live preview background
+        CameraXPreview(modifier = Modifier.fillMaxSize()) { _ -> }
+
+        // 2. Centered Reticle overlay target
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .wrapContentSize(Alignment.Center)
+        ) {
+            ReticleOverlay()
+        }
+
+        // 3. Telemetry Overlay at the top
+        TelemetryOverlay(
+            metadata = versionMetadata,
+            lat = latitude,
+            lon = longitude,
+            targetAz = targetAz,
+            targetAlt = targetAlt,
+            offsetAz = currentAzimuthOffset,
+            offsetPitch = currentPitchOffset,
+            offsetRoll = currentRollOffset,
+            modifier = Modifier.align(Alignment.TopCenter)
+        )
+
+        // 4. Action Buttons at the bottom
+        // Bottom-Left: Back button
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(24.dp),
+            contentAlignment = Alignment.BottomStart
+        ) {
+            Box(
+                modifier = Modifier
+                    .background(
+                        color = Color.Black.copy(alpha = 0.5f),
+                        shape = CircleShape
+                    )
+                    .clickable { onNavigateToPlanetarium() }
+                    .padding(horizontal = 20.dp, vertical = 12.dp)
+            ) {
+                Text(
+                    text = "← Back",
+                    color = Color.White,
+                    fontSize = 14.sp
+                )
+            }
+        }
+
+        // Bottom-Right: Moon calibration trigger button
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(24.dp),
+            contentAlignment = Alignment.BottomEnd
+        ) {
+            MoonIcon(
+                onClick = {
+                    val offsets = calibrator.performCelestialCalibration(
+                        targetAz.toFloat(),
+                        targetAlt.toFloat()
+                    )
+                    val data = MoonCalibrationData(
+                        timestamp = System.currentTimeMillis(),
+                        azimuthOffset = offsets[0],
+                        pitchOffset = offsets[1],
+                        rollOffset = offsets[2]
+                    )
+                    val success = storageManager.writeCalibrationToAllStorages(data)
+                    if (success) {
+                        onUpdateOffsets(offsets[0], offsets[1], offsets[2])
+                    }
+                },
+                modifier = Modifier.background(
+                    color = Color.Black.copy(alpha = 0.5f),
+                    shape = CircleShape
+                )
+            )
         }
     }
 }
