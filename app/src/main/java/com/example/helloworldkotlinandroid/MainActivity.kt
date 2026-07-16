@@ -44,13 +44,8 @@ import java.io.FileWriter
 import java.io.PrintWriter
 import kotlinx.coroutines.delay
 
-/**
- * A SensorEventListener wrapper that filters incoming sensor events
- * using an Exponential Moving Average (EMA) to prevent visual jitter.
- */
 class SmoothedSensorEventListener(
     private val delegate: SensorEventListener,
-    // Adjust between 0.05 (slower/smoother) and 0.25 (faster/jitterier)
     private val alpha: Float = 0.12f
 ) : SensorEventListener {
     private var smoothedValues: FloatArray? = null
@@ -68,7 +63,6 @@ class SmoothedSensorEventListener(
             }
         }
 
-        // Mutate values array with smoothed data and delegate downstream
         System.arraycopy(smoothed, 0, event.values, 0, smoothed.size)
         delegate.onSensorChanged(event)
     }
@@ -154,11 +148,12 @@ fun CelestialTrackerScreen(
     var currentRollOffset by remember { mutableStateOf(0.0f) }
     var versionMetadata by remember { mutableStateOf("Version metadata unavailable") }
     var frameTicker by remember { mutableStateOf(0L) }
+    var selectedCalibrationTarget by remember { mutableStateOf("Moon") }
 
     LaunchedEffect(Unit) {
         while (true) {
             frameTicker++
-            delay(16L) // ~60fps
+            delay(16L)
         }
     }
 
@@ -186,7 +181,6 @@ fun CelestialTrackerScreen(
         }
     }
 
-    // --- Hardware Sensor Pipeline with Filtering ---
     DisposableEffect(Unit) {
         val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
         val rotVectorSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
@@ -199,10 +193,7 @@ fun CelestialTrackerScreen(
                 Toast.LENGTH_LONG
             ).show()
         } else {
-            // Smooth raw movements using the custom EMA wrapper
             smoothedListener = SmoothedSensorEventListener(calibrator, alpha = 0.12f)
-
-            // SENSOR_DELAY_GAME provides faster updates (~20ms) which makes the filtering much cleaner
             sensorManager.registerListener(
                 smoothedListener,
                 rotVectorSensor,
@@ -268,14 +259,30 @@ fun CelestialTrackerScreen(
                 longitude = deviceLongitude,
                 frameTicker = frameTicker,
                 onNavigateToCalibration = {
+                    navController.navigate("calibration_selection")
+                }
+            )
+        }
+        composable("calibration_selection") {
+            CalibrationSelectionScreen(
+                onSelectTarget = { target ->
+                    selectedCalibrationTarget = target
                     navController.navigate("calibration")
+                },
+                onNavigateBack = {
+                    navController.popBackStack()
                 }
             )
         }
         composable("calibration") {
-            val moonTarget = remember(deviceLatitude, deviceLongitude, frameTicker) {
-                MoonCalculator.getPosition(deviceLatitude, deviceLongitude)
-            }
+            val targetBody =
+                remember(selectedCalibrationTarget, deviceLatitude, deviceLongitude, frameTicker) {
+                    if (selectedCalibrationTarget == "Venus") {
+                        CelestialObjectsCalculator.getVenusPosition(deviceLatitude, deviceLongitude)
+                    } else {
+                        MoonCalculator.getPosition(deviceLatitude, deviceLongitude)
+                    }
+                }
 
             CalibrationScreen(
                 calibrator = calibrator,
@@ -284,7 +291,8 @@ fun CelestialTrackerScreen(
                 longitude = deviceLongitude,
                 frameTicker = frameTicker,
                 versionMetadata = versionMetadata,
-                moonTarget = moonTarget,
+                moonTarget = targetBody,
+                targetBodyName = selectedCalibrationTarget,
                 currentAzimuthOffset = currentAzimuthOffset,
                 currentPitchOffset = currentPitchOffset,
                 currentRollOffset = currentRollOffset,
@@ -303,10 +311,6 @@ fun CelestialTrackerScreen(
     }
 }
 
-/**
- * Planetarium view integrating the device camera background,
- * active celestial body projections, and navigation controls.
- */
 @Composable
 fun PlanetariumScreen(
     calibrator: CelestialCalibrator,
@@ -317,10 +321,8 @@ fun PlanetariumScreen(
     modifier: Modifier = Modifier
 ) {
     Box(modifier = modifier.fillMaxSize()) {
-        // 1. Camera live preview background
         CameraXPreview(modifier = Modifier.fillMaxSize()) { _ -> }
 
-        // 2. Calculated celestial overlay (Stars, Planets, Coordinates)
         CelestialOverlayCanvas(
             calibrator = calibrator,
             latitude = latitude,
@@ -329,7 +331,6 @@ fun PlanetariumScreen(
             modifier = Modifier.fillMaxSize()
         )
 
-        // 3. Centered Reticle overlay target
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -338,7 +339,6 @@ fun PlanetariumScreen(
             ReticleOverlay()
         }
 
-        // 4. Calibration Nav Action Button (bottom right)
         Box(
             modifier = Modifier
                 .fillMaxSize()

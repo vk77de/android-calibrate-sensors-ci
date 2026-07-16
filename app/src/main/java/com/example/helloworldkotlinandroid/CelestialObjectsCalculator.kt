@@ -64,7 +64,6 @@ object CelestialObjectsCalculator {
         StarData("Mizar", 200.980, 54.918),
         // Ursa Major
         StarData("Alkaid", 206.880, 49.314)
-
     )
 
     private val DeepSpaceCatalog = listOf(
@@ -74,6 +73,25 @@ object CelestialObjectsCalculator {
         StarData("Dipole Repeller", 318.500, 17.000),
         StarData("Cold Spot Repeller", 48.750, -19.500)
     )
+
+    fun getVenusPosition(lat: Double, lon: Double): MoonCalculator.Position {
+        val cal = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
+        val timeMs = cal.timeInMillis
+
+        val d = (timeMs / 86400000.0) + 2440587.5 - 2451545.0
+
+        val hour = cal.get(Calendar.HOUR_OF_DAY)
+        val min = cal.get(Calendar.MINUTE)
+        val sec = cal.get(Calendar.SECOND)
+        val utcHours = hour + min / 60.0 + sec / 3600.0
+        var lst = 100.46 + 0.98564736 * d + lon + 15.0 * utcHours
+        lst = (lst % 360 + 360) % 360
+
+        val ra = (244.19 + 0.9856 * d) % 360
+        val dec = -22.0 * cos(Math.toRadians(ra))
+
+        return computeAltAz(ra, dec, lat, lst)
+    }
 
     fun getCalibratedObjects(lat: Double, lon: Double): List<TargetBody> {
         val cal = Calendar.getInstance(TimeZone.getTimeZone("UTC"))

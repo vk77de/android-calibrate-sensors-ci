@@ -8,9 +8,13 @@ import androidx.camera.view.PreviewView
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentSize
@@ -28,6 +32,8 @@ import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -100,7 +106,6 @@ fun CelestialOverlayCanvas(
     calibrator: CelestialCalibrator,
     latitude: Double,
     longitude: Double,
-    // Mutation driving real-time state invalidation loops
     frameTicker: Long,
     modifier: Modifier = Modifier
 ) {
@@ -113,7 +118,6 @@ fun CelestialOverlayCanvas(
             }
         }
 
-    // Fallback to Frankfurt coordinates (50.1109 N, 8.6821 E) if GPS lock has not yet initialized
     val effectiveLatitude = if (latitude == 0.0 && longitude == 0.0) 50.1109 else latitude
     val effectiveLongitude = if (latitude == 0.0 && longitude == 0.0) 8.6821 else longitude
 
@@ -121,8 +125,6 @@ fun CelestialOverlayCanvas(
         val width = size.width.toInt()
         val height = size.height.toInt()
 
-        // Defensively reference frameTicker to ensure lambda recapturing.
-        // Doing a runtime evaluation prevents compiler/R8 optimization pruning.
         if (frameTicker < 0L) {
             drawCircle(Color.Transparent, 0f)
         }
@@ -170,6 +172,7 @@ fun TelemetryOverlay(
     metadata: String,
     lat: Double,
     lon: Double,
+    targetName: String,
     targetAz: Double,
     targetAlt: Double,
     offsetAz: Float,
@@ -195,7 +198,7 @@ fun TelemetryOverlay(
                     Lat: %.6f
                     Lon: %.6f
                     
-                    --- MOON POSITION ---
+                    --- %s POSITION ---
                     Target Az:  %.2f°
                     Target Alt: %.2f°
                     
@@ -204,7 +207,8 @@ fun TelemetryOverlay(
                     Offset Pitch: %.2f°
                     Offset Roll:  %.2f°
                 """.trimIndent(),
-                metadata, lat, lon, targetAz, targetAlt, offsetAz, offsetPitch, offsetRoll
+                metadata, lat, lon, targetName.uppercase(), targetAz,
+                targetAlt, offsetAz, offsetPitch, offsetRoll
             ),
             color = Color.White,
             fontSize = 12.sp,
@@ -216,12 +220,10 @@ fun TelemetryOverlay(
 @Composable
 fun ReticleOverlay(modifier: Modifier = Modifier) {
     Canvas(modifier = modifier.size(300.dp)) {
-        // Calculate dynamic scale factors to map the 100x100 viewport to the current canvas bounds
         val scaleX = size.width / 100f
         val scaleY = size.height / 100f
 
         scale(scaleX, scaleY, pivot = Offset.Zero) {
-            // 1. Outer Circle: center (50, 50), radius 35, strokeWidth 0.6
             drawCircle(
                 color = Color.Red,
                 radius = 35f,
@@ -229,7 +231,6 @@ fun ReticleOverlay(modifier: Modifier = Modifier) {
                 style = Stroke(width = 0.6f)
             )
 
-            // 2. Inner Circle: center (50, 50), radius 18, strokeWidth 0.4
             drawCircle(
                 color = Color.Red,
                 radius = 18f,
@@ -237,7 +238,6 @@ fun ReticleOverlay(modifier: Modifier = Modifier) {
                 style = Stroke(width = 0.4f)
             )
 
-            // 3. Vertical Guide Lines (M 48,0 L 48,100 & M 52,0 L 52,100)
             drawLine(
                 color = Color.Red,
                 start = Offset(48f, 0f),
@@ -251,7 +251,6 @@ fun ReticleOverlay(modifier: Modifier = Modifier) {
                 strokeWidth = 0.5f
             )
 
-            // 4. Horizontal Guide Lines (M 0,48 L 100,48 & M 0,52 L 100,52)
             drawLine(
                 color = Color.Red,
                 start = Offset(0f, 48f),
@@ -280,21 +279,18 @@ fun ReticleIcon(onClick: () -> Unit, modifier: Modifier = Modifier) {
             val center = Offset(size.width / 2f, size.height / 2f)
             val radius = size.minDimension / 2f
 
-            // Outer Circle
             drawCircle(
                 color = Color.Red,
                 radius = radius * 0.8f,
                 style = Stroke(width = 2f)
             )
 
-            // Inner Circle
             drawCircle(
                 color = Color.Red,
                 radius = radius * 0.4f,
                 style = Stroke(width = 1.5f)
             )
 
-            // Vertical Crosshair line
             drawLine(
                 color = Color.Red,
                 start = Offset(center.x, 0f),
@@ -302,7 +298,6 @@ fun ReticleIcon(onClick: () -> Unit, modifier: Modifier = Modifier) {
                 strokeWidth = 1.5f
             )
 
-            // Horizontal Crosshair line
             drawLine(
                 color = Color.Red,
                 start = Offset(0f, center.y),
@@ -347,10 +342,27 @@ fun MoonIcon(onClick: () -> Unit, modifier: Modifier = Modifier) {
     }
 }
 
-/**
- * Robust reflection helper to extract azimuth and altitude properties safely
- * from the moon target object without running into type reference errors.
- */
+@Composable
+fun VenusIcon(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .size(48.dp)
+            .clickable(onClick = onClick)
+            .padding(8.dp)
+    ) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val center = Offset(size.width / 2f, size.height / 2f)
+            val radius = size.minDimension / 2f
+
+            // Render Venus with a bright sphere and surrounding subtle visual planetary indicator
+            drawCircle(
+                color = Color(0xFFFFF9E6),
+                radius = radius * 0.8f
+            )
+        }
+    }
+}
+
 private fun getDoubleProperty(obj: Any?, propName: String): Double {
     if (obj == null) return 0.0
     return try {
@@ -367,6 +379,104 @@ private fun getDoubleProperty(obj: Any?, propName: String): Double {
 }
 
 @Composable
+fun CalibrationSelectionScreen(
+    onSelectTarget: (String) -> Unit,
+    onNavigateBack: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(Color.Black)
+    ) {
+        CameraXPreview(modifier = Modifier.fillMaxSize()) { _ -> }
+
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.75f))
+        )
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text(
+                text = "CALIBRATION METHOD",
+                color = Color.White,
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+
+            Text(
+                text = "Align reticle with your chosen object to sync phone sensors.",
+                color = Color.LightGray,
+                fontSize = 14.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(bottom = 32.dp)
+            )
+
+            // Button 1: Moon Calibration
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp)
+                    .background(Color.White.copy(alpha = 0.15f), shape = CircleShape)
+                    .clickable { onSelectTarget("Moon") }
+                    .padding(horizontal = 24.dp, vertical = 16.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "1. Moon Calibration",
+                    color = Color.White,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+
+            // Button 2: Venus Calibration
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp)
+                    .background(Color.White.copy(alpha = 0.15f), shape = CircleShape)
+                    .clickable { onSelectTarget("Venus") }
+                    .padding(horizontal = 24.dp, vertical = 16.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "2. Venus Calibration",
+                    color = Color.White,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+
+            Spacer(modifier = Modifier.height(32.dp))
+
+            // Cancel/Back
+            Box(
+                modifier = Modifier
+                    .background(Color.Red.copy(alpha = 0.4f), shape = CircleShape)
+                    .clickable { onNavigateBack() }
+                    .padding(horizontal = 28.dp, vertical = 12.dp)
+            ) {
+                Text(
+                    text = "Cancel",
+                    color = Color.White,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+    }
+}
+
+@Composable
 fun CalibrationScreen(
     calibrator: CelestialCalibrator,
     storageManager: CalibrationStorageManager,
@@ -374,23 +484,21 @@ fun CalibrationScreen(
     longitude: Double,
     frameTicker: Long,
     versionMetadata: String,
-    // Decoupled using Any? for maximum safety
     moonTarget: Any?,
     currentAzimuthOffset: Float,
     currentPitchOffset: Float,
     currentRollOffset: Float,
     onUpdateOffsets: (Float, Float, Float) -> Unit,
     onNavigateToPlanetarium: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    targetBodyName: String = "Moon"
 ) {
     val targetAz = getDoubleProperty(moonTarget, "azimuth")
     val targetAlt = getDoubleProperty(moonTarget, "altitude")
 
     Box(modifier = modifier.fillMaxSize()) {
-        // 1. Camera live preview background
         CameraXPreview(modifier = Modifier.fillMaxSize()) { _ -> }
 
-        // 2. Centered Reticle overlay target
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -399,11 +507,11 @@ fun CalibrationScreen(
             ReticleOverlay()
         }
 
-        // 3. Telemetry Overlay at the top
         TelemetryOverlay(
             metadata = versionMetadata,
             lat = latitude,
             lon = longitude,
+            targetName = targetBodyName,
             targetAz = targetAz,
             targetAlt = targetAlt,
             offsetAz = currentAzimuthOffset,
@@ -412,8 +520,6 @@ fun CalibrationScreen(
             modifier = Modifier.align(Alignment.TopCenter)
         )
 
-        // 4. Action Buttons at the bottom
-        // Bottom-Left: Back button
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -437,35 +543,61 @@ fun CalibrationScreen(
             }
         }
 
-        // Bottom-Right: Moon calibration trigger button
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(24.dp),
             contentAlignment = Alignment.BottomEnd
         ) {
-            MoonIcon(
-                onClick = {
-                    val offsets = calibrator.performCelestialCalibration(
-                        targetAz.toFloat(),
-                        targetAlt.toFloat()
+            if (targetBodyName == "Venus") {
+                VenusIcon(
+                    onClick = {
+                        val offsets = calibrator.performCelestialCalibration(
+                            targetAz.toFloat(),
+                            targetAlt.toFloat()
+                        )
+                        val data = MoonCalibrationData(
+                            timestamp = System.currentTimeMillis(),
+                            azimuthOffset = offsets[0],
+                            pitchOffset = offsets[1],
+                            rollOffset = offsets[2],
+                            targetCelestialBody = "Venus"
+                        )
+                        val success = storageManager.writeCalibrationToAllStorages(data)
+                        if (success) {
+                            onUpdateOffsets(offsets[0], offsets[1], offsets[2])
+                        }
+                    },
+                    modifier = Modifier.background(
+                        color = Color.Black.copy(alpha = 0.5f),
+                        shape = CircleShape
                     )
-                    val data = MoonCalibrationData(
-                        timestamp = System.currentTimeMillis(),
-                        azimuthOffset = offsets[0],
-                        pitchOffset = offsets[1],
-                        rollOffset = offsets[2]
-                    )
-                    val success = storageManager.writeCalibrationToAllStorages(data)
-                    if (success) {
-                        onUpdateOffsets(offsets[0], offsets[1], offsets[2])
-                    }
-                },
-                modifier = Modifier.background(
-                    color = Color.Black.copy(alpha = 0.5f),
-                    shape = CircleShape
                 )
-            )
+            } else {
+                MoonIcon(
+                    onClick = {
+                        val offsets = calibrator.performCelestialCalibration(
+                            targetAz.toFloat(),
+                            targetAlt.toFloat()
+                        )
+                        val data = MoonCalibrationData(
+                            timestamp = System.currentTimeMillis(),
+                            azimuthOffset = offsets[0],
+                            pitchOffset = offsets[1],
+                            rollOffset = offsets[2],
+                            targetCelestialBody = "Moon"
+                        )
+                        val success = storageManager.writeCalibrationToAllStorages(data)
+                        if (success) {
+                            onUpdateOffsets(offsets[0], offsets[1], offsets[2])
+                        }
+                    },
+                    modifier = Modifier.background(
+                        color = Color.Black.copy(alpha = 0.5f),
+                        shape = CircleShape
+                    )
+                )
+            }
         }
     }
 }
