@@ -210,4 +210,3 @@ object CelestialObjectsCalculator {
         return MoonCalculator.Position(az, alt)
     }
 }
-

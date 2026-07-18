@@ -41,7 +41,8 @@ import androidx.compose.ui.viewinterop.AndroidView
 // --- Color Configuration Map ---
 val BodyColors =
     mapOf(
-        "Moon" to Color(0xFFEAEAEA), "Sun" to Color(0xFFFFB300), "Venus" to Color(0xFFFFFFFF), "Jupiter" to Color(0xFFFFFDD0),
+        "Moon" to Color(0xFFEAEAEA), "Sun" to Color(0xFFFFB300),
+        "Venus" to Color(0xFFFFFFFF), "Jupiter" to Color(0xFFFFFDD0),
         "Mars" to Color(0xFFFF5733), "Sirius" to Color(0xFFE0FFFF), "Saturn" to Color(0xFFFFD700),
         "Arcturus" to Color(0xFFFF8C00),
         "Canopus" to Color(0xFFF0F8FF),
@@ -58,7 +59,8 @@ val BodyColors =
 // --- Radii Configuration Map ---
 val BodyRadii =
     mapOf(
-        "Moon" to 26f, "Sun" to 30f, "Venus" to 14f, "Jupiter" to 18f, "Mars" to 12f, "Sirius" to 10f,
+        "Moon" to 26f, "Sun" to 30f, "Venus" to 14f,
+        "Jupiter" to 18f, "Mars" to 12f, "Sirius" to 10f,
         "Saturn" to 15f, "Arcturus" to 10f, "Canopus" to 9f, "Alpha Centauri" to 9f, "Vega" to 9f,
         "Capella" to 8f, "Rigel" to 9f, "Procyon" to 8f, "Achernar" to 8f, "Betelgeuse" to 11f,
         "Altair" to 7f, "Aldebaran" to 9f, "Sagittarius A*" to 14f, "Great Attractor" to 16f,
@@ -666,4 +668,3 @@ fun CalibrationScreen(
         }
     }
 }
-
