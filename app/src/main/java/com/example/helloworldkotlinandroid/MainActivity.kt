@@ -277,10 +277,10 @@ fun CelestialTrackerScreen(
         composable("calibration") {
             val targetBody =
                 remember(selectedCalibrationTarget, deviceLatitude, deviceLongitude, frameTicker) {
-                    if (selectedCalibrationTarget == "Venus") {
-                        CelestialObjectsCalculator.getVenusPosition(deviceLatitude, deviceLongitude)
-                    } else {
-                        MoonCalculator.getPosition(deviceLatitude, deviceLongitude)
+                    when (selectedCalibrationTarget) {
+                        "Venus" -> CelestialObjectsCalculator.getVenusPosition(deviceLatitude, deviceLongitude)
+                        "Sun" -> CelestialObjectsCalculator.getSunPosition(deviceLatitude, deviceLongitude)
+                        else -> MoonCalculator.getPosition(deviceLatitude, deviceLongitude)
                     }
                 }
 
@@ -355,3 +355,4 @@ fun PlanetariumScreen(
         }
     }
 }
+

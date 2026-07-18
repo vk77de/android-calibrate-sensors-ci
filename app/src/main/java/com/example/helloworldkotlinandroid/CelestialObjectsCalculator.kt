@@ -93,6 +93,32 @@ object CelestialObjectsCalculator {
         return computeAltAz(ra, dec, lat, lst)
     }
 
+    fun getSunPosition(lat: Double, lon: Double): MoonCalculator.Position {
+        val cal = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
+        val timeMs = cal.timeInMillis
+
+        val d = (timeMs / 86400000.0) + 2440587.5 - 2451545.0
+
+        val hour = cal.get(Calendar.HOUR_OF_DAY)
+        val min = cal.get(Calendar.MINUTE)
+        val sec = cal.get(Calendar.SECOND)
+        val utcHours = hour + min / 60.0 + sec / 3600.0
+        var lst = 100.46 + 0.98564736 * d + lon + 15.0 * utcHours
+        lst = (lst % 360 + 360) % 360
+
+        // High precision linear conversion models for standard solar orbits
+        val l = (280.46 + 0.9856474 * d) % 360
+        val g = Math.toRadians((357.528 + 0.9856003 * d) % 360)
+        val lambda = l + 1.915 * sin(g) + 0.020 * sin(2 * g)
+        val lambdaRad = Math.toRadians(lambda)
+        val ecl = Math.toRadians(23.439 - 0.0000004 * d)
+
+        val ra = Math.toDegrees(atan2(cos(ecl) * sin(lambdaRad), cos(lambdaRad)))
+        val dec = Math.toDegrees(asin(sin(ecl) * sin(lambdaRad)))
+
+        return computeAltAz(ra, dec, lat, lst)
+    }
+
     fun getCalibratedObjects(lat: Double, lon: Double): List<TargetBody> {
         val cal = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
         val timeMs = cal.timeInMillis
@@ -111,6 +137,10 @@ object CelestialObjectsCalculator {
         // 1. Moon
         val moonPos = MoonCalculator.getPosition(lat, lon)
         list.add(TargetBody("Moon", moonPos.azimuth, moonPos.altitude))
+
+        // 1b. Sun
+        val sunPos = getSunPosition(lat, lon)
+        list.add(TargetBody("Sun", sunPos.azimuth, sunPos.altitude))
 
         // 2. Planets (Dynamic Rough Linear Projections)
         val planets = listOf(
@@ -180,3 +210,4 @@ object CelestialObjectsCalculator {
         return MoonCalculator.Position(az, alt)
     }
 }
+

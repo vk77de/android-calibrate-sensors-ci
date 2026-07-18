@@ -41,7 +41,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 // --- Color Configuration Map ---
 val BodyColors =
     mapOf(
-        "Moon" to Color(0xFFEAEAEA), "Venus" to Color(0xFFFFFFFF), "Jupiter" to Color(0xFFFFFDD0),
+        "Moon" to Color(0xFFEAEAEA), "Sun" to Color(0xFFFFB300), "Venus" to Color(0xFFFFFFFF), "Jupiter" to Color(0xFFFFFDD0),
         "Mars" to Color(0xFFFF5733), "Sirius" to Color(0xFFE0FFFF), "Saturn" to Color(0xFFFFD700),
         "Arcturus" to Color(0xFFFF8C00),
         "Canopus" to Color(0xFFF0F8FF),
@@ -58,7 +58,7 @@ val BodyColors =
 // --- Radii Configuration Map ---
 val BodyRadii =
     mapOf(
-        "Moon" to 26f, "Venus" to 14f, "Jupiter" to 18f, "Mars" to 12f, "Sirius" to 10f,
+        "Moon" to 26f, "Sun" to 30f, "Venus" to 14f, "Jupiter" to 18f, "Mars" to 12f, "Sirius" to 10f,
         "Saturn" to 15f, "Arcturus" to 10f, "Canopus" to 9f, "Alpha Centauri" to 9f, "Vega" to 9f,
         "Capella" to 8f, "Rigel" to 9f, "Procyon" to 8f, "Achernar" to 8f, "Betelgeuse" to 11f,
         "Altair" to 7f, "Aldebaran" to 9f, "Sagittarius A*" to 14f, "Great Attractor" to 16f,
@@ -354,9 +354,28 @@ fun VenusIcon(onClick: () -> Unit, modifier: Modifier = Modifier) {
             val center = Offset(size.width / 2f, size.height / 2f)
             val radius = size.minDimension / 2f
 
-            // Render Venus with a bright sphere and surrounding subtle visual planetary indicator
             drawCircle(
                 color = Color(0xFFFFF9E6),
+                radius = radius * 0.8f
+            )
+        }
+    }
+}
+
+@Composable
+fun SunIcon(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .size(48.dp)
+            .clickable(onClick = onClick)
+            .padding(8.dp)
+    ) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val center = Offset(size.width / 2f, size.height / 2f)
+            val radius = size.minDimension / 2f
+
+            drawCircle(
+                color = Color(0xFFFFB300),
                 radius = radius * 0.8f
             )
         }
@@ -456,6 +475,24 @@ fun CalibrationSelectionScreen(
                 )
             }
 
+            // Button 3: Sun Calibration
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp)
+                    .background(Color.White.copy(alpha = 0.15f), shape = CircleShape)
+                    .clickable { onSelectTarget("Sun") }
+                    .padding(horizontal = 24.dp, vertical = 16.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "3. Sun Calibration",
+                    color = Color.White,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+
             Spacer(modifier = Modifier.height(32.dp))
 
             // Cancel/Back
@@ -549,55 +586,84 @@ fun CalibrationScreen(
                 .padding(24.dp),
             contentAlignment = Alignment.BottomEnd
         ) {
-            if (targetBodyName == "Venus") {
-                VenusIcon(
-                    onClick = {
-                        val offsets = calibrator.performCelestialCalibration(
-                            targetAz.toFloat(),
-                            targetAlt.toFloat()
+            when (targetBodyName) {
+                "Venus" -> {
+                    VenusIcon(
+                        onClick = {
+                            val offsets = calibrator.performCelestialCalibration(
+                                targetAz.toFloat(),
+                                targetAlt.toFloat()
+                            )
+                            val data = MoonCalibrationData(
+                                timestamp = System.currentTimeMillis(),
+                                azimuthOffset = offsets[0],
+                                pitchOffset = offsets[1],
+                                rollOffset = offsets[2],
+                                targetCelestialBody = "Venus"
+                            )
+                            val success = storageManager.writeCalibrationToAllStorages(data)
+                            if (success) {
+                                onUpdateOffsets(offsets[0], offsets[1], offsets[2])
+                            }
+                        },
+                        modifier = Modifier.background(
+                            color = Color.Black.copy(alpha = 0.5f),
+                            shape = CircleShape
                         )
-                        val data = MoonCalibrationData(
-                            timestamp = System.currentTimeMillis(),
-                            azimuthOffset = offsets[0],
-                            pitchOffset = offsets[1],
-                            rollOffset = offsets[2],
-                            targetCelestialBody = "Venus"
-                        )
-                        val success = storageManager.writeCalibrationToAllStorages(data)
-                        if (success) {
-                            onUpdateOffsets(offsets[0], offsets[1], offsets[2])
-                        }
-                    },
-                    modifier = Modifier.background(
-                        color = Color.Black.copy(alpha = 0.5f),
-                        shape = CircleShape
                     )
-                )
-            } else {
-                MoonIcon(
-                    onClick = {
-                        val offsets = calibrator.performCelestialCalibration(
-                            targetAz.toFloat(),
-                            targetAlt.toFloat()
+                }
+                "Sun" -> {
+                    SunIcon(
+                        onClick = {
+                            val offsets = calibrator.performCelestialCalibration(
+                                targetAz.toFloat(),
+                                targetAlt.toFloat()
+                            )
+                            val data = MoonCalibrationData(
+                                timestamp = System.currentTimeMillis(),
+                                azimuthOffset = offsets[0],
+                                pitchOffset = offsets[1],
+                                rollOffset = offsets[2],
+                                targetCelestialBody = "Sun"
+                            )
+                            val success = storageManager.writeCalibrationToAllStorages(data)
+                            if (success) {
+                                onUpdateOffsets(offsets[0], offsets[1], offsets[2])
+                            }
+                        },
+                        modifier = Modifier.background(
+                            color = Color.Black.copy(alpha = 0.5f),
+                            shape = CircleShape
                         )
-                        val data = MoonCalibrationData(
-                            timestamp = System.currentTimeMillis(),
-                            azimuthOffset = offsets[0],
-                            pitchOffset = offsets[1],
-                            rollOffset = offsets[2],
-                            targetCelestialBody = "Moon"
-                        )
-                        val success = storageManager.writeCalibrationToAllStorages(data)
-                        if (success) {
-                            onUpdateOffsets(offsets[0], offsets[1], offsets[2])
-                        }
-                    },
-                    modifier = Modifier.background(
-                        color = Color.Black.copy(alpha = 0.5f),
-                        shape = CircleShape
                     )
-                )
+                }
+                else -> {
+                    MoonIcon(
+                        onClick = {
+                            val offsets = calibrator.performCelestialCalibration(
+                                targetAz.toFloat(),
+                                targetAlt.toFloat()
+                            )
+                            val data = MoonCalibrationData(
+                                timestamp = System.currentTimeMillis(),
+                                azimuthOffset = offsets[0],
+                                pitchOffset = offsets[1],
+                                rollOffset = offsets[2],
+                                targetCelestialBody = "Moon"
+                            )
+                            val success = storageManager.writeCalibrationToAllStorages(data)
+                            if (success) {
+                                onUpdateOffsets(offsets[0], offsets[1], offsets[2])
+                            }
+                        },
+                        modifier = Modifier.background(
+                            color = Color.Black.copy(alpha = 0.5f),
+                            shape = CircleShape
+                        )
+                    )
+                }
             }
         }
     }
 }
+
