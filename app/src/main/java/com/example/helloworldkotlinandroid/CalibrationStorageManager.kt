@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import java.io.File
 import java.io.FileOutputStream
+import java.io.FileWriter
 import java.io.IOException
 import org.json.JSONObject
 
@@ -66,8 +67,35 @@ class CalibrationStorageManager(private val context: Context) {
         private const val FILE_NAME = "moon_sensor_calibration.json"
     }
 
+    private fun appendToExternalLog(payload: String, operationNotice: String) {
+        try {
+            // Compress the formatted JSON payload into a strict single-line string representation
+            val singleLineJson = try {
+                JSONObject(payload).toString()
+            } catch (e: Exception) {
+                payload.replace(Regex("\\s+"), " ")
+            }
+
+            val logDir = File("/storage/FF9D-1400/Download/IT/current/logs")
+            if (!logDir.exists()) {
+                logDir.mkdirs()
+            }
+            val logFile = File(logDir, "operations.log")
+
+            FileWriter(logFile, true).use { writer ->
+                writer.write("$singleLineJson — $operationNotice\n")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Critical failure writing to the external operation log file", e)
+        }
+    }
+
     fun writeCalibrationToAllStorages(data: MoonCalibrationData): Boolean {
         val payload = data.toJsonString()
+
+        // Log the single-line JSON with the operation notice before writing execution completes
+        appendToExternalLog(payload, "about to write to file $FILE_NAME")
+
         val internalSuccess = saveToInternalStorage(payload)
         val sdCardSuccess = saveToPhysicalSdCard(payload)
 
@@ -83,6 +111,10 @@ class CalibrationStorageManager(private val context: Context) {
 
         return try {
             val jsonString = context.openFileInput(FILE_NAME).bufferedReader().use { it.readText() }
+
+            // Log the single-line JSON payload with operation notice immediately after loading
+            appendToExternalLog(jsonString, "loading JSON data from file $FILE_NAME")
+
             val jsonObject = JSONObject(jsonString)
 
             val target = jsonObject.optString("target", "Moon")
