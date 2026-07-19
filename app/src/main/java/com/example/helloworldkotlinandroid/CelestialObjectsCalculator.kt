@@ -1,3 +1,4 @@
+// File: ./app/src/main/java/com/example/helloworldkotlinandroid/CelestialObjectsCalculator.kt
 package com.example.helloworldkotlinandroid
 
 import java.util.Calendar
@@ -189,10 +190,11 @@ object CelestialObjectsCalculator {
         val altRad = asin(sinAlt)
         val alt = Math.toDegrees(altRad)
 
-        val azRad = atan2(sin(haRad), (sin(latRad) * cos(haRad) - tan(decRad) * cos(latRad)))
-        var az = Math.toDegrees(azRad)
-        az = (az + 180) % 360
+        val yAz = sin(haRad)
+        val xAz = cos(haRad) * sin(latRad) - tan(decRad) * cos(latRad)
+        var az = Math.toDegrees(atan2(yAz, xAz))
+        az = (az % 360 + 360) % 360
 
-        return MoonCalculator.Position(az, alt, ra)
+        return MoonCalculator.Position(azimuth = az, altitude = alt, ra = ra)
     }
 }

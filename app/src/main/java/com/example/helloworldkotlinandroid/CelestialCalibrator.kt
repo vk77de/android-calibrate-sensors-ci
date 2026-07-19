@@ -1,3 +1,4 @@
+// File: ./app/src/main/java/com/example/helloworldkotlinandroid/CelestialCalibrator.kt
 package com.example.helloworldkotlinandroid
 
 import android.graphics.PointF
@@ -21,13 +22,32 @@ class CelestialCalibrator : SensorEventListener {
     }
 
     fun setCalibrationOffsets(az: Float, pt: Float, rl: Float) {
-        val orientationRadians =
-            floatArrayOf(
-                Math.toRadians(az.toDouble()).toFloat(),
-                Math.toRadians(pt.toDouble()).toFloat(),
-                Math.toRadians(rl.toDouble()).toFloat()
-            )
-        SensorManager.getRotationMatrixFromVector(calibrationOffsetMatrix, orientationRadians)
+        val azRad = Math.toRadians(az.toDouble())
+        val ptRad = Math.toRadians(pt.toDouble())
+        val rlRad = Math.toRadians(rl.toDouble())
+
+        val sinAz = sin(azRad).toFloat()
+        val cosAz = cos(azRad).toFloat()
+        val sinPt = sin(ptRad).toFloat()
+        val cosPt = cos(ptRad).toFloat()
+        val sinRl = sin(rlRad).toFloat()
+        val cosRl = cos(rlRad).toFloat()
+
+        Matrix.setIdentityM(calibrationOffsetMatrix, 0)
+
+        // Directly reconstruct the exact 4x4 column-major matrix matching Android's getOrientation definitions
+        calibrationOffsetMatrix[0] = cosAz * cosRl - sinAz * sinPt * sinRl
+        calibrationOffsetMatrix[1] = sinAz * cosPt
+        calibrationOffsetMatrix[2] = cosAz * sinRl + sinAz * sinPt * cosRl
+
+        calibrationOffsetMatrix[4] = -sinAz * cosRl - cosAz * sinPt * sinRl
+        calibrationOffsetMatrix[5] = cosAz * cosPt
+        calibrationOffsetMatrix[6] = -sinAz * sinRl + cosAz * sinPt * cosRl
+
+        calibrationOffsetMatrix[8] = -sinRl * cosPt
+        calibrationOffsetMatrix[9] = -sinPt
+        calibrationOffsetMatrix[10] = cosRl * cosPt
+
         isCalibrated = true
     }
 

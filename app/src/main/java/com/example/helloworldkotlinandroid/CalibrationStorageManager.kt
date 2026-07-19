@@ -1,3 +1,4 @@
+// File: ./app/src/main/java/com/example/helloworldkotlinandroid/CalibrationStorageManager.kt
 package com.example.helloworldkotlinandroid
 
 import android.content.Context
@@ -65,6 +66,7 @@ class CalibrationStorageManager(private val context: Context) {
     companion object {
         private const val TAG = "CalibrationStorage"
         private const val FILE_NAME = "calibration_data_newest.json"
+        private const val ALTERNATE_FILE_NAME = "moon_sensor_calibration.json"
     }
 
     private fun appendToExternalLog(payload: String, operationNotice: String) {
@@ -92,7 +94,6 @@ class CalibrationStorageManager(private val context: Context) {
     fun writeCalibrationToAllStorages(data: CalibrationData): Boolean {
         val payload = data.toJsonString()
 
-        // Log the single-line JSON with the operation notice before writing execution completes
         appendToExternalLog(payload, "about to write to file $FILE_NAME")
 
         val internalSuccess = saveToInternalStorage(payload)
@@ -105,14 +106,30 @@ class CalibrationStorageManager(private val context: Context) {
     }
 
     fun readLatestCalibration(): CalibrationData? {
-        val targetFile = File(context.filesDir, FILE_NAME)
-        if (!targetFile.exists()) return null
+        var chosenFileName = FILE_NAME
+        var targetFile = File(context.filesDir, chosenFileName)
+
+        // Fallback checks for the alternate file layout to preserve historical configurations
+        if (!targetFile.exists()) {
+            chosenFileName = ALTERNATE_FILE_NAME
+            targetFile = File(context.filesDir, chosenFileName)
+        }
+
+        if (!targetFile.exists()) {
+            appendToExternalLog(
+                "{}",
+                "NOTICE: Initial load skipped. Neither " +
+                    FILE_NAME + "nor $ALTERNATE_FILE_NAME was found."
+            )
+            return null
+        }
 
         return try {
-            val jsonString = context.openFileInput(FILE_NAME).bufferedReader().use { it.readText() }
+            val jsonString = context.openFileInput(
+                chosenFileName
+            ).bufferedReader().use { it.readText() }
 
-            // Log the single-line JSON payload with operation notice immediately after loading
-            appendToExternalLog(jsonString, "loading JSON data from file $FILE_NAME")
+            appendToExternalLog(jsonString, "loading JSON data from file $chosenFileName")
 
             val jsonObject = JSONObject(jsonString)
 
@@ -144,6 +161,11 @@ class CalibrationStorageManager(private val context: Context) {
                 roll = if (rVal.isNaN()) rlOffset else rVal
             )
         } catch (e: Exception) {
+            // Temporary structural failure debug logs written to operations file
+            appendToExternalLog(
+                "{\"error\":\"${e.javaClass.simpleName}\",\"message\":\"${e.message}\"}",
+                "ERROR: Impossibility to read or decode from file $chosenFileName"
+            )
             Log.e(TAG, "Critical failure reading or decoding calibration JSON payload", e)
             null
         }
@@ -163,6 +185,10 @@ class CalibrationStorageManager(private val context: Context) {
             }
             true
         } catch (e: IOException) {
+            appendToExternalLog(
+                "{}",
+                "ERROR: Internal write operation failed to execute: ${e.message}"
+            )
             false
         }
     }
@@ -181,6 +207,10 @@ class CalibrationStorageManager(private val context: Context) {
             }
             true
         } catch (e: IOException) {
+            appendToExternalLog(
+                "{}",
+                "ERROR: SD card write operation failed to execute: ${e.message}"
+            )
             false
         }
     }
