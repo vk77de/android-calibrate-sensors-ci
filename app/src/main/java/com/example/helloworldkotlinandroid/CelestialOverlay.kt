@@ -38,34 +38,28 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 
-// --- Color Configuration Map ---
-val BodyColors =
-    mapOf(
-        "Moon" to Color(0xFFEAEAEA), "Sun" to Color(0xFFFFB300),
-        "Venus" to Color(0xFFFFFFFF), "Jupiter" to Color(0xFFFFFDD0),
-        "Mars" to Color(0xFFFF5733), "Sirius" to Color(0xFFE0FFFF), "Saturn" to Color(0xFFFFD700),
-        "Arcturus" to Color(0xFFFF8C00),
-        "Canopus" to Color(0xFFF0F8FF),
-        "Alpha Centauri" to Color(0xFFFFFFE0),
-        "Vega" to Color(0xFFF4F8FF), "Capella" to Color(0xFFFFFACD), "Rigel" to Color(0xFFB0E0E6),
-        "Procyon" to Color(0xFFFFF8DC),
-        "Achernar" to Color(0xFFD4E6F1), "Betelgeuse" to Color(0xFFFF4500),
-        "Altair" to Color(0xFFF5F5F5),
-        "Aldebaran" to Color(0xFFFA8072), "Sagittarius A*" to Color(0xFFDA70D6),
-        "Great Attractor" to Color(0xFFFF1493), "Shapley Attractor" to Color(0xFFFF00FF),
-        "Dipole Repeller" to Color(0xFF00FFFF), "Cold Spot Repeller" to Color(0xFF1E90FF)
-    )
+val BodyColors = mapOf(
+    "Moon" to Color(0xFFEAEAEA), "Sun" to Color(0xFFFFB300),
+    "Venus" to Color(0xFFFFFFFF), "Jupiter" to Color(0xFFFFFDD0),
+    "Mars" to Color(0xFFFF5733), "Sirius" to Color(0xFFE0FFFF), "Saturn" to Color(0xFFFFD700),
+    "Arcturus" to Color(0xFFFF8C00), "Canopus" to Color(0xFFF0F8FF),
+    "Alpha Centauri" to Color(0xFFFFFFE0),
+    "Vega" to Color(0xFFF4F8FF), "Capella" to Color(0xFFFFFACD), "Rigel" to Color(0xFFB0E0E6),
+    "Procyon" to Color(0xFFFFF8DC), "Achernar" to Color(0xFFD4E6F1),
+    "Betelgeuse" to Color(0xFFFF4500),
+    "Altair" to Color(0xFFF5F5F5), "Aldebaran" to Color(0xFFFA8072),
+    "Sagittarius A*" to Color(0xFFDA70D6),
+    "Great Attractor" to Color(0xFFFF1493), "Shapley Attractor" to Color(0xFFFF00FF),
+    "Dipole Repeller" to Color(0xFF00FFFF), "Cold Spot Repeller" to Color(0xFF1E90FF)
+)
 
-// --- Radii Configuration Map ---
-val BodyRadii =
-    mapOf(
-        "Moon" to 26f, "Sun" to 30f, "Venus" to 14f,
-        "Jupiter" to 18f, "Mars" to 12f, "Sirius" to 10f,
-        "Saturn" to 15f, "Arcturus" to 10f, "Canopus" to 9f, "Alpha Centauri" to 9f, "Vega" to 9f,
-        "Capella" to 8f, "Rigel" to 9f, "Procyon" to 8f, "Achernar" to 8f, "Betelgeuse" to 11f,
-        "Altair" to 7f, "Aldebaran" to 9f, "Sagittarius A*" to 14f, "Great Attractor" to 16f,
-        "Shapley Attractor" to 15f, "Dipole Repeller" to 14f, "Cold Spot Repeller" to 14f
-    )
+val BodyRadii = mapOf(
+    "Moon" to 26f, "Sun" to 30f, "Venus" to 14f, "Jupiter" to 18f, "Mars" to 12f, "Sirius" to 10f,
+    "Saturn" to 15f, "Arcturus" to 10f, "Canopus" to 9f, "Alpha Centauri" to 9f, "Vega" to 9f,
+    "Capella" to 8f, "Rigel" to 9f, "Procyon" to 8f, "Achernar" to 8f, "Betelgeuse" to 11f,
+    "Altair" to 7f, "Aldebaran" to 9f, "Sagittarius A*" to 14f, "Great Attractor" to 16f,
+    "Shapley Attractor" to 15f, "Dipole Repeller" to 14f, "Cold Spot Repeller" to 14f
+)
 
 @Composable
 fun CameraXPreview(modifier: Modifier = Modifier, onPreviewViewCreated: (PreviewView) -> Unit) {
@@ -84,10 +78,9 @@ fun CameraXPreview(modifier: Modifier = Modifier, onPreviewViewCreated: (Preview
             val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
             cameraProviderFuture.addListener({
                 val cameraProvider = cameraProviderFuture.get()
-                val preview =
-                    Preview.Builder().build().also {
-                        it.setSurfaceProvider(viewFinder.surfaceProvider)
-                    }
+                val preview = Preview.Builder().build().also {
+                    it.setSurfaceProvider(viewFinder.surfaceProvider)
+                }
                 try {
                     cameraProvider.unbindAll()
                     cameraProvider.bindToLifecycle(
@@ -111,14 +104,13 @@ fun CelestialOverlayCanvas(
     frameTicker: Long,
     modifier: Modifier = Modifier
 ) {
-    val textPaint =
-        remember {
-            android.graphics.Paint().apply {
-                color = android.graphics.Color.WHITE
-                textSize = 32f
-                isAntiAlias = true
-            }
+    val textPaint = remember {
+        android.graphics.Paint().apply {
+            color = android.graphics.Color.WHITE
+            textSize = 32f
+            isAntiAlias = true
         }
+    }
 
     val effectiveLatitude = if (latitude == 0.0 && longitude == 0.0) 50.1109 else latitude
     val effectiveLongitude = if (latitude == 0.0 && longitude == 0.0) 8.6821 else longitude
@@ -127,9 +119,7 @@ fun CelestialOverlayCanvas(
         val width = size.width.toInt()
         val height = size.height.toInt()
 
-        if (frameTicker < 0L) {
-            drawCircle(Color.Transparent, 0f)
-        }
+        if (frameTicker < 0L) drawCircle(Color.Transparent, 0f)
 
         val bodies = CelestialObjectsCalculator.getCalibratedObjects(
             effectiveLatitude,
@@ -137,17 +127,15 @@ fun CelestialOverlayCanvas(
         )
 
         for (body in bodies) {
-            val screenPoint: PointF? =
-                calibrator.projectOrientationToScreen(
-                    body.azimuth,
-                    body.altitude,
-                    width,
-                    height
-                )
+            val screenPoint: PointF? = calibrator.projectOrientationToScreen(
+                body.azimuth,
+                body.altitude,
+                width,
+                height
+            )
 
-            if (screenPoint != null &&
-                screenPoint.x >= 0 && screenPoint.x <= width &&
-                screenPoint.y >= 0 && screenPoint.y <= height
+            if (screenPoint != null && screenPoint.x >= 0 &&
+                screenPoint.x <= width && screenPoint.y >= 0 && screenPoint.y <= height
             ) {
                 val color = BodyColors[body.name] ?: Color.White
                 val radius = BodyRadii[body.name] ?: 10f
@@ -155,9 +143,8 @@ fun CelestialOverlayCanvas(
                 drawCircle(
                     color = color,
                     radius = radius,
-                    center = androidx.compose.ui.geometry.Offset(screenPoint.x, screenPoint.y)
+                    center = Offset(screenPoint.x, screenPoint.y)
                 )
-
                 drawContext.canvas.nativeCanvas.drawText(
                     body.name,
                     screenPoint.x + radius + 8f,
@@ -183,16 +170,14 @@ fun TelemetryOverlay(
     modifier: Modifier = Modifier
 ) {
     Box(
-        modifier =
-        modifier
+        modifier = modifier
             .fillMaxWidth()
             .padding(16.dp)
             .background(Color.Black.copy(alpha = 0.6f))
             .padding(12.dp)
     ) {
         Text(
-            text =
-            String.format(
+            text = String.format(
                 """
                     %s
                     
@@ -209,8 +194,8 @@ fun TelemetryOverlay(
                     Offset Pitch: %.2f°
                     Offset Roll:  %.2f°
                 """.trimIndent(),
-                metadata, lat, lon, targetName.uppercase(), targetAz,
-                targetAlt, offsetAz, offsetPitch, offsetRoll
+                metadata, lat, lon, targetName.uppercase(),
+                targetAz, targetAlt, offsetAz, offsetPitch, offsetRoll
             ),
             color = Color.White,
             fontSize = 12.sp,
@@ -227,40 +212,37 @@ fun ReticleOverlay(modifier: Modifier = Modifier) {
 
         scale(scaleX, scaleY, pivot = Offset.Zero) {
             drawCircle(
-                color = Color.Red,
+                Color.Red,
                 radius = 35f,
                 center = Offset(50f, 50f),
                 style = Stroke(width = 0.6f)
             )
-
             drawCircle(
-                color = Color.Red,
+                Color.Red,
                 radius = 18f,
                 center = Offset(50f, 50f),
                 style = Stroke(width = 0.4f)
             )
-
             drawLine(
-                color = Color.Red,
+                Color.Red,
                 start = Offset(48f, 0f),
                 end = Offset(48f, 100f),
                 strokeWidth = 0.5f
             )
             drawLine(
-                color = Color.Red,
+                Color.Red,
                 start = Offset(52f, 0f),
                 end = Offset(52f, 100f),
                 strokeWidth = 0.5f
             )
-
             drawLine(
-                color = Color.Red,
+                Color.Red,
                 start = Offset(0f, 48f),
                 end = Offset(100f, 48f),
                 strokeWidth = 0.5f
             )
             drawLine(
-                color = Color.Red,
+                Color.Red,
                 start = Offset(0f, 52f),
                 end = Offset(100f, 52f),
                 strokeWidth = 0.5f
@@ -271,37 +253,20 @@ fun ReticleOverlay(modifier: Modifier = Modifier) {
 
 @Composable
 fun ReticleIcon(onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Box(
-        modifier = modifier
-            .size(48.dp)
-            .clickable(onClick = onClick)
-            .padding(8.dp)
-    ) {
+    Box(modifier = modifier.size(48.dp).clickable(onClick = onClick).padding(8.dp)) {
         Canvas(modifier = Modifier.fillMaxSize()) {
             val center = Offset(size.width / 2f, size.height / 2f)
             val radius = size.minDimension / 2f
-
-            drawCircle(
-                color = Color.Red,
-                radius = radius * 0.8f,
-                style = Stroke(width = 2f)
-            )
-
-            drawCircle(
-                color = Color.Red,
-                radius = radius * 0.4f,
-                style = Stroke(width = 1.5f)
-            )
-
+            drawCircle(Color.Red, radius = radius * 0.8f, style = Stroke(width = 2f))
+            drawCircle(Color.Red, radius = radius * 0.4f, style = Stroke(width = 1.5f))
             drawLine(
-                color = Color.Red,
+                Color.Red,
                 start = Offset(center.x, 0f),
                 end = Offset(center.x, size.height),
                 strokeWidth = 1.5f
             )
-
             drawLine(
-                color = Color.Red,
+                Color.Red,
                 start = Offset(0f, center.y),
                 end = Offset(size.width, center.y),
                 strokeWidth = 1.5f
@@ -312,12 +277,7 @@ fun ReticleIcon(onClick: () -> Unit, modifier: Modifier = Modifier) {
 
 @Composable
 fun MoonIcon(onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Box(
-        modifier = modifier
-            .size(48.dp)
-            .clickable(onClick = onClick)
-            .padding(8.dp)
-    ) {
+    Box(modifier = modifier.size(48.dp).clickable(onClick = onClick).padding(8.dp)) {
         Canvas(modifier = Modifier.fillMaxSize()) {
             val path = Path().apply {
                 moveTo(size.width * 0.65f, size.height * 0.15f)
@@ -346,40 +306,18 @@ fun MoonIcon(onClick: () -> Unit, modifier: Modifier = Modifier) {
 
 @Composable
 fun VenusIcon(onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Box(
-        modifier = modifier
-            .size(48.dp)
-            .clickable(onClick = onClick)
-            .padding(8.dp)
-    ) {
+    Box(modifier = modifier.size(48.dp).clickable(onClick = onClick).padding(8.dp)) {
         Canvas(modifier = Modifier.fillMaxSize()) {
-            val center = Offset(size.width / 2f, size.height / 2f)
-            val radius = size.minDimension / 2f
-
-            drawCircle(
-                color = Color(0xFFFFF9E6),
-                radius = radius * 0.8f
-            )
+            drawCircle(Color(0xFFFFF9E6), radius = (size.minDimension / 2f) * 0.8f)
         }
     }
 }
 
 @Composable
 fun SunIcon(onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Box(
-        modifier = modifier
-            .size(48.dp)
-            .clickable(onClick = onClick)
-            .padding(8.dp)
-    ) {
+    Box(modifier = modifier.size(48.dp).clickable(onClick = onClick).padding(8.dp)) {
         Canvas(modifier = Modifier.fillMaxSize()) {
-            val center = Offset(size.width / 2f, size.height / 2f)
-            val radius = size.minDimension / 2f
-
-            drawCircle(
-                color = Color(0xFFFFB300),
-                radius = radius * 0.8f
-            )
+            drawCircle(Color(0xFFFFB300), radius = (size.minDimension / 2f) * 0.8f)
         }
     }
 }
@@ -405,23 +343,12 @@ fun CalibrationSelectionScreen(
     onNavigateBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .background(Color.Black)
-    ) {
+    Box(modifier = modifier.fillMaxSize().background(Color.Black)) {
         CameraXPreview(modifier = Modifier.fillMaxSize()) { _ -> }
-
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.75f))
-        )
+        Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.75f)))
 
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(32.dp),
+            modifier = Modifier.fillMaxSize().padding(32.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
@@ -432,7 +359,6 @@ fun CalibrationSelectionScreen(
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(bottom = 8.dp)
             )
-
             Text(
                 text = "Align reticle with your chosen object to sync phone sensors.",
                 color = Color.LightGray,
@@ -441,68 +367,33 @@ fun CalibrationSelectionScreen(
                 modifier = Modifier.padding(bottom = 32.dp)
             )
 
-            // Button 1: Moon Calibration
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 8.dp)
-                    .background(Color.White.copy(alpha = 0.15f), shape = CircleShape)
-                    .clickable { onSelectTarget("Moon") }
-                    .padding(horizontal = 24.dp, vertical = 16.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "1. Moon Calibration",
-                    color = Color.White,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
-
-            // Button 2: Venus Calibration
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 8.dp)
-                    .background(Color.White.copy(alpha = 0.15f), shape = CircleShape)
-                    .clickable { onSelectTarget("Venus") }
-                    .padding(horizontal = 24.dp, vertical = 16.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "2. Venus Calibration",
-                    color = Color.White,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
-
-            // Button 3: Sun Calibration
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 8.dp)
-                    .background(Color.White.copy(alpha = 0.15f), shape = CircleShape)
-                    .clickable { onSelectTarget("Sun") }
-                    .padding(horizontal = 24.dp, vertical = 16.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "3. Sun Calibration",
-                    color = Color.White,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
+            listOf("Moon", "Venus", "Sun").forEachIndexed { i, name ->
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp)
+                        .background(Color.White.copy(alpha = 0.15f), shape = CircleShape)
+                        .clickable { onSelectTarget(name) }
+                        .padding(horizontal = 24.dp, vertical = 16.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "${i + 1}. $name Calibration",
+                        color = Color.White,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(32.dp))
-
-            // Cancel/Back
             Box(
-                modifier = Modifier
-                    .background(Color.Red.copy(alpha = 0.4f), shape = CircleShape)
-                    .clickable { onNavigateBack() }
-                    .padding(horizontal = 28.dp, vertical = 12.dp)
+                modifier = Modifier.background(
+                    Color.Red.copy(alpha = 0.4f),
+                    shape = CircleShape
+                ).clickable {
+                    onNavigateBack()
+                }.padding(horizontal = 28.dp, vertical = 12.dp)
             ) {
                 Text(
                     text = "Cancel",
@@ -538,132 +429,73 @@ fun CalibrationScreen(
     Box(modifier = modifier.fillMaxSize()) {
         CameraXPreview(modifier = Modifier.fillMaxSize()) { _ -> }
 
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .wrapContentSize(Alignment.Center)
-        ) {
+        Box(modifier = Modifier.fillMaxSize().wrapContentSize(Alignment.Center)) {
             ReticleOverlay()
         }
 
         TelemetryOverlay(
-            metadata = versionMetadata,
-            lat = latitude,
-            lon = longitude,
-            targetName = targetBodyName,
-            targetAz = targetAz,
-            targetAlt = targetAlt,
-            offsetAz = currentAzimuthOffset,
-            offsetPitch = currentPitchOffset,
-            offsetRoll = currentRollOffset,
-            modifier = Modifier.align(Alignment.TopCenter)
+            metadata = versionMetadata, lat = latitude,
+            lon = longitude, targetName = targetBodyName,
+            targetAz = targetAz, targetAlt = targetAlt, offsetAz = currentAzimuthOffset,
+            offsetPitch = currentPitchOffset, offsetRoll = currentRollOffset,
+            modifier = Modifier.align(
+                Alignment.TopCenter
+            )
         )
 
         Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(24.dp),
+            modifier = Modifier.fillMaxSize().padding(24.dp),
             contentAlignment = Alignment.BottomStart
         ) {
             Box(
-                modifier = Modifier
-                    .background(
-                        color = Color.Black.copy(alpha = 0.5f),
-                        shape = CircleShape
-                    )
-                    .clickable { onNavigateToPlanetarium() }
-                    .padding(horizontal = 20.dp, vertical = 12.dp)
+                modifier = Modifier.background(
+                    color = Color.Black.copy(alpha = 0.5f),
+                    shape = CircleShape
+                ).clickable {
+                    onNavigateToPlanetarium()
+                }.padding(horizontal = 20.dp, vertical = 12.dp)
             ) {
-                Text(
-                    text = "← Back",
-                    color = Color.White,
-                    fontSize = 14.sp
-                )
+                Text(text = "← Back", color = Color.White, fontSize = 14.sp)
             }
         }
 
         Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(24.dp),
+            modifier = Modifier.fillMaxSize().padding(24.dp),
             contentAlignment = Alignment.BottomEnd
         ) {
+            val sdf =
+                remember { java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US) }
+            val triggerAction = {
+                val offsets = calibrator.performCelestialCalibration(
+                    targetAz.toFloat(),
+                    targetAlt.toFloat()
+                )
+                val data = MoonCalibrationData(
+                    timestamp = System.currentTimeMillis(),
+                    azimuthOffset = offsets[0],
+                    pitchOffset = offsets[1],
+                    rollOffset = offsets[2],
+                    targetCelestialBody = targetBodyName,
+                    dateTimeStamp = sdf.format(java.util.Date()),
+                    trueAzimuth = targetAz.toFloat(),
+                    trueRa = getDoubleProperty(moonTarget, "ra").toFloat(),
+                    yawAkaAzimuth = offsets[0],
+                    pitch = offsets[1],
+                    roll = offsets[2]
+                )
+                if (storageManager.writeCalibrationToAllStorages(data)) {
+                    onUpdateOffsets(offsets[0], offsets[1], offsets[2])
+                }
+            }
+
+            val iconModifier = Modifier.background(
+                color = Color.Black.copy(alpha = 0.5f),
+                shape = CircleShape
+            )
             when (targetBodyName) {
-                "Venus" -> {
-                    VenusIcon(
-                        onClick = {
-                            val offsets = calibrator.performCelestialCalibration(
-                                targetAz.toFloat(),
-                                targetAlt.toFloat()
-                            )
-                            val data = MoonCalibrationData(
-                                timestamp = System.currentTimeMillis(),
-                                azimuthOffset = offsets[0],
-                                pitchOffset = offsets[1],
-                                rollOffset = offsets[2],
-                                targetCelestialBody = "Venus"
-                            )
-                            val success = storageManager.writeCalibrationToAllStorages(data)
-                            if (success) {
-                                onUpdateOffsets(offsets[0], offsets[1], offsets[2])
-                            }
-                        },
-                        modifier = Modifier.background(
-                            color = Color.Black.copy(alpha = 0.5f),
-                            shape = CircleShape
-                        )
-                    )
-                }
-                "Sun" -> {
-                    SunIcon(
-                        onClick = {
-                            val offsets = calibrator.performCelestialCalibration(
-                                targetAz.toFloat(),
-                                targetAlt.toFloat()
-                            )
-                            val data = MoonCalibrationData(
-                                timestamp = System.currentTimeMillis(),
-                                azimuthOffset = offsets[0],
-                                pitchOffset = offsets[1],
-                                rollOffset = offsets[2],
-                                targetCelestialBody = "Sun"
-                            )
-                            val success = storageManager.writeCalibrationToAllStorages(data)
-                            if (success) {
-                                onUpdateOffsets(offsets[0], offsets[1], offsets[2])
-                            }
-                        },
-                        modifier = Modifier.background(
-                            color = Color.Black.copy(alpha = 0.5f),
-                            shape = CircleShape
-                        )
-                    )
-                }
-                else -> {
-                    MoonIcon(
-                        onClick = {
-                            val offsets = calibrator.performCelestialCalibration(
-                                targetAz.toFloat(),
-                                targetAlt.toFloat()
-                            )
-                            val data = MoonCalibrationData(
-                                timestamp = System.currentTimeMillis(),
-                                azimuthOffset = offsets[0],
-                                pitchOffset = offsets[1],
-                                rollOffset = offsets[2],
-                                targetCelestialBody = "Moon"
-                            )
-                            val success = storageManager.writeCalibrationToAllStorages(data)
-                            if (success) {
-                                onUpdateOffsets(offsets[0], offsets[1], offsets[2])
-                            }
-                        },
-                        modifier = Modifier.background(
-                            color = Color.Black.copy(alpha = 0.5f),
-                            shape = CircleShape
-                        )
-                    )
-                }
+                "Venus" -> VenusIcon(onClick = triggerAction, modifier = iconModifier)
+                "Sun" -> SunIcon(onClick = triggerAction, modifier = iconModifier)
+                else -> MoonIcon(onClick = triggerAction, modifier = iconModifier)
             }
         }
     }

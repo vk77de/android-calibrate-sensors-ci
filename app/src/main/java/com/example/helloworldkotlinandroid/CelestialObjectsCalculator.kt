@@ -21,9 +21,7 @@ object CelestialObjectsCalculator {
         val dec: Double
     )
 
-    // Expanded Database of Bright Stars to ensure sky density across hemispheres
     private val StarCatalog = listOf(
-        // Classic Bright Stars
         StarData("Sirius", 101.287, -16.716),
         StarData("Canopus", 95.987, -52.697),
         StarData("Alpha Centauri", 219.902, -60.833),
@@ -46,23 +44,13 @@ object CelestialObjectsCalculator {
         StarData("Bellatrix", 81.282, 6.349),
         StarData("Elnath", 81.572, 28.602),
         StarData("Alnilam", 84.053, -1.201),
-
-        // --- Northern Constellations (Always Visible in the North) ---
-        // The North Star
         StarData("Polaris", 37.950, 89.264),
-        // Ursa Major (Pointer Star)
         StarData("Dubhe", 165.930, 61.751),
-        // Ursa Major (Pointer Star)
         StarData("Merak", 165.460, 56.382),
-        // Ursa Major
         StarData("Phecda", 178.450, 53.698),
-        // Ursa Major
         StarData("Megrez", 183.040, 57.032),
-        // Ursa Major
         StarData("Alioth", 194.270, 55.960),
-        // Ursa Major
         StarData("Mizar", 200.980, 54.918),
-        // Ursa Major
         StarData("Alkaid", 206.880, 49.314)
     )
 
@@ -87,10 +75,12 @@ object CelestialObjectsCalculator {
         var lst = 100.46 + 0.98564736 * d + lon + 15.0 * utcHours
         lst = (lst % 360 + 360) % 360
 
-        val ra = (244.19 + 0.9856 * d) % 360
+        var ra = (244.19 + 0.9856 * d) % 360
+        ra = (ra % 360 + 360) % 360
         val dec = -22.0 * cos(Math.toRadians(ra))
 
-        return computeAltAz(ra, dec, lat, lst)
+        val pos = computeAltAz(ra, dec, lat, lst)
+        return MoonCalculator.Position(pos.azimuth, pos.altitude, ra)
     }
 
     fun getSunPosition(lat: Double, lon: Double): MoonCalculator.Position {
@@ -106,17 +96,18 @@ object CelestialObjectsCalculator {
         var lst = 100.46 + 0.98564736 * d + lon + 15.0 * utcHours
         lst = (lst % 360 + 360) % 360
 
-        // High precision linear conversion models for standard solar orbits
         val l = (280.46 + 0.9856474 * d) % 360
         val g = Math.toRadians((357.528 + 0.9856003 * d) % 360)
         val lambda = l + 1.915 * sin(g) + 0.020 * sin(2 * g)
         val lambdaRad = Math.toRadians(lambda)
         val ecl = Math.toRadians(23.439 - 0.0000004 * d)
 
-        val ra = Math.toDegrees(atan2(cos(ecl) * sin(lambdaRad), cos(lambdaRad)))
+        var ra = Math.toDegrees(atan2(cos(ecl) * sin(lambdaRad), cos(lambdaRad)))
+        ra = (ra % 360 + 360) % 360
         val dec = Math.toDegrees(asin(sin(ecl) * sin(lambdaRad)))
 
-        return computeAltAz(ra, dec, lat, lst)
+        val pos = computeAltAz(ra, dec, lat, lst)
+        return MoonCalculator.Position(pos.azimuth, pos.altitude, ra)
     }
 
     fun getCalibratedObjects(lat: Double, lon: Double): List<TargetBody> {
@@ -134,15 +125,12 @@ object CelestialObjectsCalculator {
 
         val list = mutableListOf<TargetBody>()
 
-        // 1. Moon
         val moonPos = MoonCalculator.getPosition(lat, lon)
         list.add(TargetBody("Moon", moonPos.azimuth, moonPos.altitude))
 
-        // 1b. Sun
         val sunPos = getSunPosition(lat, lon)
         list.add(TargetBody("Sun", sunPos.azimuth, sunPos.altitude))
 
-        // 2. Planets (Dynamic Rough Linear Projections)
         val planets = listOf(
             Triple(
                 "Venus",
@@ -171,13 +159,11 @@ object CelestialObjectsCalculator {
             list.add(TargetBody(name, pos.azimuth, pos.altitude))
         }
 
-        // 3. Stars (Avoiding redundant calculations)
         for (star in StarCatalog) {
             val pos = computeAltAz(star.ra, star.dec, lat, lst)
             list.add(TargetBody(star.name, pos.azimuth, pos.altitude))
         }
 
-        // 4. Deep Space Structures
         for (anomaly in DeepSpaceCatalog) {
             val pos = computeAltAz(anomaly.ra, anomaly.dec, lat, lst)
             list.add(TargetBody(anomaly.name, pos.azimuth, pos.altitude))
@@ -207,6 +193,6 @@ object CelestialObjectsCalculator {
         var az = Math.toDegrees(azRad)
         az = (az + 180) % 360
 
-        return MoonCalculator.Position(az, alt)
+        return MoonCalculator.Position(az, alt, ra)
     }
 }

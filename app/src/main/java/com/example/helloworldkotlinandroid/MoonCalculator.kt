@@ -9,13 +9,13 @@ import kotlin.math.sin
 import kotlin.math.tan
 
 object MoonCalculator {
-    data class Position(val azimuth: Double, val altitude: Double)
+    data class Position(val azimuth: Double, val altitude: Double, val ra: Double = Double.NaN)
 
     /**
      * Calculates the approximate topocentric position of the Moon.
      * @param lat Device latitude in degrees
      * @param lon Device longitude in degrees
-     * @return Position object containing Azimuth and Altitude in degrees
+     * @return Position object containing Azimuth, Altitude, and RA in degrees
      */
     fun getPosition(lat: Double, lon: Double): Position {
         val cal = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
@@ -50,7 +50,8 @@ object MoonCalculator {
         val y = cosB * sinL * cos(ecl) - sinB * sin(ecl)
         val z = cosB * sinL * sin(ecl) + sinB * cos(ecl)
 
-        val ra = Math.toDegrees(atan2(y, x))
+        var ra = Math.toDegrees(atan2(y, x))
+        ra = (ra % 360 + 360) % 360
         val dec = Math.toDegrees(asin(z))
 
         // Calculate Local Sidereal Time (LST)
@@ -79,6 +80,6 @@ object MoonCalculator {
         var az = Math.toDegrees(atan2(yAz, xAz))
         az = (az % 360 + 360) % 360 // Normalize 0-360 (North = 0, East = 90)
 
-        return Position(azimuth = az, altitude = alt)
+        return Position(azimuth = az, altitude = alt, ra = ra)
     }
 }

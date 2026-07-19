@@ -12,10 +12,42 @@ data class MoonCalibrationData(
     val azimuthOffset: Float,
     val pitchOffset: Float,
     val rollOffset: Float,
-    val targetCelestialBody: String = "Moon"
+    val targetCelestialBody: String = "Moon",
+    val dateTimeStamp: String = "N/A",
+    val trueAzimuth: Float = Float.NaN,
+    val trueRa: Float = Float.NaN,
+    val yawAkaAzimuth: Float = Float.NaN,
+    val pitch: Float = Float.NaN,
+    val roll: Float = Float.NaN
 ) {
     fun toJsonString(): String {
-        return """
+        return try {
+            val jsonObject = JSONObject()
+            jsonObject.put("target", targetCelestialBody)
+            jsonObject.put("calibration_type", targetCelestialBody)
+            jsonObject.put("timestamp", timestamp)
+            jsonObject.put("date_time_stamp", dateTimeStamp)
+
+            jsonObject.put(
+                "true_azimuth",
+                if (trueAzimuth.isNaN()) "N/A" else trueAzimuth.toDouble()
+            )
+            jsonObject.put("true_ra", if (trueRa.isNaN()) "N/A" else trueRa.toDouble())
+
+            jsonObject.put("azimuth_offset", azimuthOffset.toDouble())
+            jsonObject.put("pitch_offset", pitchOffset.toDouble())
+            jsonObject.put("roll_offset", rollOffset.toDouble())
+
+            jsonObject.put(
+                "yaw_aka_azimuth",
+                if (yawAkaAzimuth.isNaN()) "N/A" else yawAkaAzimuth.toDouble()
+            )
+            jsonObject.put("pitch", if (pitch.isNaN()) "N/A" else pitch.toDouble())
+            jsonObject.put("roll", if (roll.isNaN()) "N/A" else roll.toDouble())
+
+            jsonObject.toString(4)
+        } catch (e: Exception) {
+            """
             {
                 "target": "$targetCelestialBody",
                 "timestamp": $timestamp,
@@ -23,7 +55,8 @@ data class MoonCalibrationData(
                 "pitch_offset": $pitchOffset,
                 "roll_offset": $rollOffset
             }
-        """.trimIndent()
+            """.trimIndent()
+        }
     }
 }
 
@@ -51,17 +84,45 @@ class CalibrationStorageManager(private val context: Context) {
         return try {
             val jsonString = context.openFileInput(FILE_NAME).bufferedReader().use { it.readText() }
             val jsonObject = JSONObject(jsonString)
+
+            val target = jsonObject.optString("target", "Moon")
+            val timestamp = jsonObject.optLong("timestamp", System.currentTimeMillis())
+            val dateTime = jsonObject.optString("date_time_stamp", "N/A")
+
+            val azOffset = jsonObject.optDouble("azimuth_offset", 0.0).toFloat()
+            val ptOffset = jsonObject.optDouble("pitch_offset", 0.0).toFloat()
+            val rlOffset = jsonObject.optDouble("roll_offset", 0.0).toFloat()
+
+            val trueAz = parseOptionalFloat(jsonObject, "true_azimuth")
+            val trueRa = parseOptionalFloat(jsonObject, "true_ra")
+            val yawAka = parseOptionalFloat(jsonObject, "yaw_aka_azimuth")
+            val pVal = parseOptionalFloat(jsonObject, "pitch")
+            val rVal = parseOptionalFloat(jsonObject, "roll")
+
             MoonCalibrationData(
-                timestamp = jsonObject.getLong("timestamp"),
-                azimuthOffset = jsonObject.getDouble("azimuth_offset").toFloat(),
-                pitchOffset = jsonObject.getDouble("pitch_offset").toFloat(),
-                rollOffset = jsonObject.getDouble("roll_offset").toFloat(),
-                targetCelestialBody = jsonObject.optString("target", "Moon")
+                timestamp = timestamp,
+                azimuthOffset = azOffset,
+                pitchOffset = ptOffset,
+                rollOffset = rlOffset,
+                targetCelestialBody = target,
+                dateTimeStamp = dateTime,
+                trueAzimuth = if (trueAz.isNaN()) azOffset else trueAz,
+                trueRa = trueRa,
+                yawAkaAzimuth = if (yawAka.isNaN()) azOffset else yawAka,
+                pitch = if (pVal.isNaN()) ptOffset else pVal,
+                roll = if (rVal.isNaN()) rlOffset else rVal
             )
         } catch (e: Exception) {
             Log.e(TAG, "Critical failure reading or decoding calibration JSON payload", e)
             null
         }
+    }
+
+    private fun parseOptionalFloat(jsonObject: JSONObject, key: String): Float {
+        if (!jsonObject.has(key) || jsonObject.isNull(key)) return Float.NaN
+        val valueStr = jsonObject.optString(key)
+        if (valueStr == "N/A") return Float.NaN
+        return jsonObject.optDouble(key, Double.NaN).toFloat()
     }
 
     private fun saveToInternalStorage(payload: String): Boolean {
