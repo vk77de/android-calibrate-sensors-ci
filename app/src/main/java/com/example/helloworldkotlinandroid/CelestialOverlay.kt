@@ -470,7 +470,7 @@ fun CalibrationScreen(
                     targetAz.toFloat(),
                     targetAlt.toFloat()
                 )
-                val data = MoonCalibrationData(
+                val data = CalibrationData(
                     timestamp = System.currentTimeMillis(),
                     azimuthOffset = offsets[0],
                     pitchOffset = offsets[1],

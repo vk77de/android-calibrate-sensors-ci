@@ -8,7 +8,7 @@ import java.io.FileWriter
 import java.io.IOException
 import org.json.JSONObject
 
-data class MoonCalibrationData(
+data class CalibrationData(
     val timestamp: Long,
     val azimuthOffset: Float,
     val pitchOffset: Float,
@@ -64,12 +64,11 @@ data class MoonCalibrationData(
 class CalibrationStorageManager(private val context: Context) {
     companion object {
         private const val TAG = "CalibrationStorage"
-        private const val FILE_NAME = "moon_sensor_calibration.json"
+        private const val FILE_NAME = "calibration_data_newest.json"
     }
 
     private fun appendToExternalLog(payload: String, operationNotice: String) {
         try {
-            // Compress the formatted JSON payload into a strict single-line string representation
             val singleLineJson = try {
                 JSONObject(payload).toString()
             } catch (e: Exception) {
@@ -90,7 +89,7 @@ class CalibrationStorageManager(private val context: Context) {
         }
     }
 
-    fun writeCalibrationToAllStorages(data: MoonCalibrationData): Boolean {
+    fun writeCalibrationToAllStorages(data: CalibrationData): Boolean {
         val payload = data.toJsonString()
 
         // Log the single-line JSON with the operation notice before writing execution completes
@@ -105,7 +104,7 @@ class CalibrationStorageManager(private val context: Context) {
         return internalSuccess
     }
 
-    fun readLatestCalibration(): MoonCalibrationData? {
+    fun readLatestCalibration(): CalibrationData? {
         val targetFile = File(context.filesDir, FILE_NAME)
         if (!targetFile.exists()) return null
 
@@ -131,7 +130,7 @@ class CalibrationStorageManager(private val context: Context) {
             val pVal = parseOptionalFloat(jsonObject, "pitch")
             val rVal = parseOptionalFloat(jsonObject, "roll")
 
-            MoonCalibrationData(
+            CalibrationData(
                 timestamp = timestamp,
                 azimuthOffset = azOffset,
                 pitchOffset = ptOffset,
