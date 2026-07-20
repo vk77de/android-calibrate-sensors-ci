@@ -426,7 +426,35 @@ fun CalibrationScreen(
     val targetAz = getDoubleProperty(moonTarget, "azimuth")
     val targetAlt = getDoubleProperty(moonTarget, "altitude")
 
-    Box(modifier = modifier.fillMaxSize()) {
+    val sdf = remember { java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US) }
+    val triggerAction = {
+        val offsets = calibrator.performCelestialCalibration(
+            targetAz.toFloat(),
+            targetAlt.toFloat()
+        )
+        val data = CalibrationData(
+            timestamp = System.currentTimeMillis(),
+            azimuthOffset = offsets[0],
+            pitchOffset = offsets[1],
+            rollOffset = offsets[2],
+            targetCelestialBody = targetBodyName,
+            dateTimeStamp = sdf.format(java.util.Date()),
+            trueAzimuth = targetAz.toFloat(),
+            trueRa = getDoubleProperty(moonTarget, "ra").toFloat(),
+            yawAkaAzimuth = offsets[0],
+            pitch = offsets[1],
+            roll = offsets[2]
+        )
+        if (storageManager.writeCalibrationToAllStorages(data)) {
+            onUpdateOffsets(offsets[0], offsets[1], offsets[2])
+        }
+    }
+
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .clickable { triggerAction() }
+    ) {
         CameraXPreview(modifier = Modifier.fillMaxSize()) { _ -> }
 
         Box(modifier = Modifier.fillMaxSize().wrapContentSize(Alignment.Center)) {
@@ -463,31 +491,6 @@ fun CalibrationScreen(
             modifier = Modifier.fillMaxSize().padding(24.dp),
             contentAlignment = Alignment.BottomEnd
         ) {
-            val sdf =
-                remember { java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US) }
-            val triggerAction = {
-                val offsets = calibrator.performCelestialCalibration(
-                    targetAz.toFloat(),
-                    targetAlt.toFloat()
-                )
-                val data = CalibrationData(
-                    timestamp = System.currentTimeMillis(),
-                    azimuthOffset = offsets[0],
-                    pitchOffset = offsets[1],
-                    rollOffset = offsets[2],
-                    targetCelestialBody = targetBodyName,
-                    dateTimeStamp = sdf.format(java.util.Date()),
-                    trueAzimuth = targetAz.toFloat(),
-                    trueRa = getDoubleProperty(moonTarget, "ra").toFloat(),
-                    yawAkaAzimuth = offsets[0],
-                    pitch = offsets[1],
-                    roll = offsets[2]
-                )
-                if (storageManager.writeCalibrationToAllStorages(data)) {
-                    onUpdateOffsets(offsets[0], offsets[1], offsets[2])
-                }
-            }
-
             val iconModifier = Modifier.background(
                 color = Color.Black.copy(alpha = 0.5f),
                 shape = CircleShape
