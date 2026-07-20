@@ -7,6 +7,9 @@ import java.io.File
 import java.io.FileOutputStream
 import java.io.FileWriter
 import java.io.IOException
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import org.json.JSONObject
 
 data class CalibrationData(
@@ -71,11 +74,89 @@ class CalibrationStorageManager(private val context: Context) {
 
     private fun appendToExternalLog(payload: String, operationNotice: String) {
         try {
-            val singleLineJson = try {
-                JSONObject(payload).toString()
+            var dateStr: String? = null
+            val pseudoJsonParts = mutableListOf<String>()
+
+            try {
+                val jsonObject = JSONObject(payload)
+
+                if (jsonObject.has("date_time_stamp")) {
+                    val dt = jsonObject.optString("date_time_stamp")
+                    if (dt.isNotBlank() && dt != "N/A") {
+                        dateStr = dt
+                    }
+                }
+                if (dateStr == null && jsonObject.has("timestamp")) {
+                    val ts = jsonObject.optLong("timestamp", 0L)
+                    if (ts > 0) {
+                        val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
+                        dateStr = sdf.format(Date(ts))
+                    }
+                }
+
+                // 1. Filtered attribute: calibration_type
+                val calType = jsonObject.optString(
+                    "calibration_type",
+                    jsonObject.optString("target", "")
+                )
+                if (calType.isNotBlank() && calType != "N/A") {
+                    pseudoJsonParts.add("\"calibration_type\":\"$calType\"")
+                }
+
+                // Helper for numeric degree fields rounded to 2 digits
+                fun addDegreeField(key: String) {
+                    if (jsonObject.has(key) && !jsonObject.isNull(key)) {
+                        val value = jsonObject.optDouble(key, Double.NaN)
+                        if (!value.isNaN()) {
+                            val formattedVal = String.format(Locale.US, "%.2f", value)
+                            pseudoJsonParts.add("\"$key\":$formattedVal°")
+                        }
+                    }
+                }
+
+                // 2. Filtered numeric degree attributes present in example
+                addDegreeField("true_azimuth")
+                addDegreeField("true_ra")
+                addDegreeField("azimuth_offset")
+                addDegreeField("pitch_offset")
+                addDegreeField("roll_offset")
             } catch (e: Exception) {
-                payload.replace(Regex("\\s+"), " ")
+                // If payload is empty or not valid JSON, pseudo-JSON array remains empty
             }
+
+            if (dateStr == null) {
+                val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
+                dateStr = sdf.format(Date())
+            }
+
+            // Determine log level and sanitize notice sentence
+            var logLevel = "[INFO]"
+            var cleanNotice = operationNotice.trim()
+
+            if (cleanNotice.startsWith("ERROR:", ignoreCase = true)) {
+                logLevel = "[ERROR]"
+                cleanNotice = cleanNotice.substring("ERROR:".length).trim()
+            } else if (cleanNotice.startsWith("NOTICE:", ignoreCase = true)) {
+                logLevel = "[NOTICE]"
+                cleanNotice = cleanNotice.substring("NOTICE:".length).trim()
+            }
+
+            cleanNotice = cleanNotice
+                .replace("from file ", "from ")
+                .replace("to file ", "to ")
+            if (cleanNotice.isNotEmpty()) {
+                cleanNotice = cleanNotice.replaceFirstChar { it.uppercase() }
+            }
+
+            val logLineBuilder = StringBuilder()
+            logLineBuilder.append(
+                dateStr
+            ).append(" ").append(logLevel).append(" ").append(cleanNotice)
+
+            if (pseudoJsonParts.isNotEmpty()) {
+                logLineBuilder.append(" ").append(pseudoJsonParts.joinToString(" "))
+            }
+            logLineBuilder.append("\n")
 
             val logDir = File("/storage/FF9D-1400/Download/IT/current/logs")
             if (!logDir.exists()) {
@@ -84,7 +165,7 @@ class CalibrationStorageManager(private val context: Context) {
             val logFile = File(logDir, "operations.log")
 
             FileWriter(logFile, true).use { writer ->
-                writer.write("$singleLineJson — $operationNotice\n")
+                writer.write(logLineBuilder.toString())
             }
         } catch (e: Exception) {
             Log.e(TAG, "Critical failure writing to the external operation log file", e)
@@ -94,7 +175,7 @@ class CalibrationStorageManager(private val context: Context) {
     fun writeCalibrationToAllStorages(data: CalibrationData): Boolean {
         val payload = data.toJsonString()
 
-        appendToExternalLog(payload, "about to write to file $FILE_NAME")
+        appendToExternalLog(payload, "Writing JSON data to $FILE_NAME")
 
         val internalSuccess = saveToInternalStorage(payload)
         val sdCardSuccess = saveToPhysicalSdCard(payload)
@@ -109,7 +190,6 @@ class CalibrationStorageManager(private val context: Context) {
         var chosenFileName = FILE_NAME
         var targetFile = File(context.filesDir, chosenFileName)
 
-        // Fallback checks for the alternate file layout to preserve historical configurations
         if (!targetFile.exists()) {
             chosenFileName = ALTERNATE_FILE_NAME
             targetFile = File(context.filesDir, chosenFileName)
@@ -119,7 +199,7 @@ class CalibrationStorageManager(private val context: Context) {
             appendToExternalLog(
                 "{}",
                 "NOTICE: Initial load skipped. Neither " +
-                    FILE_NAME + "nor $ALTERNATE_FILE_NAME was found."
+                    FILE_NAME + " nor $ALTERNATE_FILE_NAME was found."
             )
             return null
         }
@@ -129,7 +209,7 @@ class CalibrationStorageManager(private val context: Context) {
                 chosenFileName
             ).bufferedReader().use { it.readText() }
 
-            appendToExternalLog(jsonString, "loading JSON data from file $chosenFileName")
+            appendToExternalLog(jsonString, "Loading JSON data from $chosenFileName")
 
             val jsonObject = JSONObject(jsonString)
 
@@ -161,10 +241,9 @@ class CalibrationStorageManager(private val context: Context) {
                 roll = if (rVal.isNaN()) rlOffset else rVal
             )
         } catch (e: Exception) {
-            // Temporary structural failure debug logs written to operations file
             appendToExternalLog(
                 "{\"error\":\"${e.javaClass.simpleName}\",\"message\":\"${e.message}\"}",
-                "ERROR: Impossibility to read or decode from file $chosenFileName"
+                "ERROR: Impossibility to read or decode from $chosenFileName"
             )
             Log.e(TAG, "Critical failure reading or decoding calibration JSON payload", e)
             null
