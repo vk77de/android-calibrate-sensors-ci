@@ -37,6 +37,24 @@ fun getGitVersionName(): String {
     }
 }
 
+fun getGitHash(): String {
+    return try {
+        val process = ProcessBuilder("git", "rev-parse", "--short", "HEAD").start()
+        val result = process.inputStream.bufferedReader().readText().trim()
+        process.waitFor()
+        if (result.isNotEmpty()) result else "unknown"
+    } catch (e: Exception) {
+        try {
+            val process2 = ProcessBuilder("git", "describe", "--always").start()
+            val result2 = process2.inputStream.bufferedReader().readText().trim()
+            process2.waitFor()
+            if (result2.isNotEmpty()) result2 else "unknown"
+        } catch (e2: Exception) {
+            "unknown"
+        }
+    }
+}
+
 android {
     namespace = "com.example.helloworldkotlinandroid"
     compileSdk = 34 // Updated to meet modern Android requirements
@@ -60,6 +78,9 @@ android {
         versionCode = getGitCommitCount()
         versionName = getGitVersionName()
 
+        val gitHash = getGitHash()
+        buildConfigField("String", "GIT_HASH", "\"$gitHash\"")
+
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -78,9 +99,10 @@ android {
         }
     }
 
-    // Turn on the Compose build feature flag
+    // Turn on Compose and BuildConfig generation flags
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     compileOptions {

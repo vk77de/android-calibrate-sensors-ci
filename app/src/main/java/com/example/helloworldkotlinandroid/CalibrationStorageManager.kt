@@ -151,10 +151,16 @@ class CalibrationStorageManager(private val context: Context) {
                 cleanNotice = cleanNotice.replaceFirstChar { it.uppercase() }
             }
 
+            val gitHash = BuildConfig.GIT_HASH
+
             val logLineBuilder = StringBuilder()
-            logLineBuilder.append(
-                dateStr
-            ).append(" ").append(logLevel).append(" ").append(cleanNotice)
+            logLineBuilder.append(dateStr)
+                .append(" ")
+                .append(logLevel)
+                .append(" ")
+                .append(gitHash)
+                .append(" ")
+                .append(cleanNotice)
 
             if (pseudoJsonParts.isNotEmpty()) {
                 logLineBuilder.append(" ").append(pseudoJsonParts.joinToString(" "))
@@ -190,67 +196,80 @@ class CalibrationStorageManager(private val context: Context) {
     }
 
     fun readLatestCalibration(): CalibrationData? {
-        var chosenFileName = FILE_NAME
-        var targetFile = File(context.filesDir, chosenFileName)
+        val candidateFileNames = listOf(FILE_NAME, ALTERNATE_FILE_NAME)
+        val candidateDirs = mutableListOf<File>()
 
-        if (!targetFile.exists()) {
-            chosenFileName = ALTERNATE_FILE_NAME
-            targetFile = File(context.filesDir, chosenFileName)
+        // 1. Internal app files directory
+        candidateDirs.add(context.filesDir)
+
+        // 2. External app files directories (primary external storage & physical SD card)
+        context.getExternalFilesDirs(null)?.forEach { dir ->
+            if (dir != null && !candidateDirs.contains(dir)) {
+                candidateDirs.add(dir)
+            }
         }
 
-        if (!targetFile.exists()) {
-            appendToExternalLog(
-                "{}",
-                "NOTICE: Initial load skipped. Neither " +
-                    FILE_NAME + " nor $ALTERNATE_FILE_NAME was found."
-            )
-            return null
+        var lastExceptionMessage: String? = null
+
+        for (fileName in candidateFileNames) {
+            for (dir in candidateDirs) {
+                val candidateFile = File(dir, fileName)
+                if (candidateFile.exists() && candidateFile.isFile) {
+                    try {
+                        val jsonString = candidateFile.readText()
+                        val jsonObject = JSONObject(jsonString)
+
+                        val target = jsonObject.optString("target", "Moon")
+                        val timestamp = jsonObject.optLong("timestamp", System.currentTimeMillis())
+                        val dateTime = jsonObject.optString("date_time_stamp", "N/A")
+
+                        val azOffset = jsonObject.optDouble("azimuth_offset", 0.0).toFloat()
+                        val ptOffset = jsonObject.optDouble("pitch_offset", 0.0).toFloat()
+                        val rlOffset = jsonObject.optDouble("roll_offset", 0.0).toFloat()
+
+                        val trueAz = parseOptionalFloat(jsonObject, "true_azimuth")
+                        val trueAlt = parseOptionalFloat(jsonObject, "true_altitude")
+                        val yawAka = parseOptionalFloat(jsonObject, "yaw_aka_azimuth")
+                        val pVal = parseOptionalFloat(jsonObject, "pitch")
+                        val rVal = parseOptionalFloat(jsonObject, "roll")
+
+                        val data = CalibrationData(
+                            timestamp = timestamp,
+                            azimuthOffset = azOffset,
+                            pitchOffset = ptOffset,
+                            rollOffset = rlOffset,
+                            targetCelestialBody = target,
+                            dateTimeStamp = dateTime,
+                            trueAzimuth = if (trueAz.isNaN()) azOffset else trueAz,
+                            trueAltitude = trueAlt,
+                            yawAkaAzimuth = if (yawAka.isNaN()) azOffset else yawAka,
+                            pitch = if (pVal.isNaN()) ptOffset else pVal,
+                            roll = if (rVal.isNaN()) rlOffset else rVal
+                        )
+
+                        appendToExternalLog(jsonString, "Loading JSON data from $fileName")
+                        return data
+                    } catch (e: Exception) {
+                        lastExceptionMessage = "${e.javaClass.simpleName}: ${e.message}"
+                        Log.e(
+                            TAG,
+                            "Failed reading or decoding calibration JSON " +
+                                "from ${candidateFile.absolutePath}",
+                            e
+                        )
+                    }
+                }
+            }
         }
 
-        return try {
-            val jsonString = context.openFileInput(
-                chosenFileName
-            ).bufferedReader().use { it.readText() }
-
-            appendToExternalLog(jsonString, "Loading JSON data from $chosenFileName")
-
-            val jsonObject = JSONObject(jsonString)
-
-            val target = jsonObject.optString("target", "Moon")
-            val timestamp = jsonObject.optLong("timestamp", System.currentTimeMillis())
-            val dateTime = jsonObject.optString("date_time_stamp", "N/A")
-
-            val azOffset = jsonObject.optDouble("azimuth_offset", 0.0).toFloat()
-            val ptOffset = jsonObject.optDouble("pitch_offset", 0.0).toFloat()
-            val rlOffset = jsonObject.optDouble("roll_offset", 0.0).toFloat()
-
-            val trueAz = parseOptionalFloat(jsonObject, "true_azimuth")
-            val trueAlt = parseOptionalFloat(jsonObject, "true_altitude")
-            val yawAka = parseOptionalFloat(jsonObject, "yaw_aka_azimuth")
-            val pVal = parseOptionalFloat(jsonObject, "pitch")
-            val rVal = parseOptionalFloat(jsonObject, "roll")
-
-            CalibrationData(
-                timestamp = timestamp,
-                azimuthOffset = azOffset,
-                pitchOffset = ptOffset,
-                rollOffset = rlOffset,
-                targetCelestialBody = target,
-                dateTimeStamp = dateTime,
-                trueAzimuth = if (trueAz.isNaN()) azOffset else trueAz,
-                trueAltitude = trueAlt,
-                yawAkaAzimuth = if (yawAka.isNaN()) azOffset else yawAka,
-                pitch = if (pVal.isNaN()) ptOffset else pVal,
-                roll = if (rVal.isNaN()) rlOffset else rVal
-            )
-        } catch (e: Exception) {
-            appendToExternalLog(
-                "{\"error\":\"${e.javaClass.simpleName}\",\"message\":\"${e.message}\"}",
-                "ERROR: Impossibility to read or decode from $chosenFileName"
-            )
-            Log.e(TAG, "Critical failure reading or decoding calibration JSON payload", e)
-            null
+        // Write error entry to operation log file if JSON calibration could not be loaded
+        val errorMsg = if (lastExceptionMessage != null) {
+            "ERROR: Impossibility to read or decode JSON calibration data: $lastExceptionMessage"
+        } else {
+            "ERROR: Impossibility to load JSON calibration data; no calibration file found."
         }
+        appendToExternalLog("{}", errorMsg)
+        return null
     }
 
     private fun parseOptionalFloat(jsonObject: JSONObject, key: String): Float {
