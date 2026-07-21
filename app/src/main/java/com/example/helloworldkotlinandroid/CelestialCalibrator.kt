@@ -54,7 +54,9 @@ class CelestialCalibrator : SensorEventListener {
     fun performCelestialCalibration(trueAzimuth: Float, trueAltitude: Float): FloatArray {
         val trueRotationMatrix = FloatArray(16)
         Matrix.setIdentityM(trueRotationMatrix, 0)
-        Matrix.rotateM(trueRotationMatrix, 0, -trueAzimuth, 0f, 1f, 0f)
+
+        // Corrected: Rotate around vertical Z-axis (0f, 0f, 1f) for horizontal azimuth heading
+        Matrix.rotateM(trueRotationMatrix, 0, -trueAzimuth, 0f, 0f, 1f)
         Matrix.rotateM(trueRotationMatrix, 0, trueAltitude, 1f, 0f, 0f)
 
         val invertedSensorMatrix = FloatArray(16)
