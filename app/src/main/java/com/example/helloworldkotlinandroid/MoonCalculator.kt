@@ -13,7 +13,7 @@ object MoonCalculator {
     data class Position(val azimuth: Double, val altitude: Double, val ra: Double = Double.NaN)
 
     /**
-     * Calculates the approximate topocentric position of the Moon.
+     * Calculates the topocentric position of the Moon using Meeus-based lunar perturbations.
      * @param lat Device latitude in degrees
      * @param lon Device longitude in degrees
      * @return Position object containing Azimuth, Altitude, and RA in degrees
@@ -25,18 +25,31 @@ object MoonCalculator {
         // Julian Date relative to J2000.0
         val d = (timeMs / 86400000.0) + 2440587.5 - 2451545.0
 
-        // Mean longitude of the Moon
-        var l = 218.316 + 13.176396 * d
-        // Mean anomaly of the Moon
-        val m = 134.963 + 13.064993 * d
-        // Mean distance of the Moon from ascending node
-        val f = 93.272 + 13.229350 * d
+        // Fundamental Arguments (Meeus Astronomical Algorithms)
+        val l0 = (218.316 + 13.176396 * d) % 360 // Mean longitude
+        val m = (134.963 + 13.064993 * d) % 360 // Moon's mean anomaly
+        val f = (93.272 + 13.229350 * d) % 360 // Argument of latitude
+        val dElong = (297.850 + 12.190749 * d) % 360 // Mean elongation
+        val mSolar = (357.529 + 0.985600 * d) % 360 // Sun's mean anomaly
 
-        // Ecliptic longitude approximation
-        l += 6.289 * sin(Math.toRadians(m))
+        val mRad = Math.toRadians(m)
+        val fRad = Math.toRadians(f)
+        val dRad = Math.toRadians(dElong)
+        val mSolarRad = Math.toRadians(mSolar)
 
-        // Ecliptic latitude approximation
-        val b = 5.128 * sin(Math.toRadians(f))
+        // Ecliptic longitude with major perturbation terms (Equation of Center, Evection, Variation)
+        var l = l0 + 6.289 * sin(mRad) +
+            1.274 * sin(2 * dRad - mRad) +
+            0.658 * sin(2 * dRad) +
+            0.214 * sin(2 * mRad) -
+            0.186 * sin(mSolarRad) -
+            0.114 * sin(2 * fRad)
+
+        // Ecliptic latitude with major perturbation terms
+        val b = 5.128 * sin(fRad) +
+            0.280 * sin(mRad + fRad) +
+            0.277 * sin(mRad - fRad) -
+            0.173 * sin(2 * dRad - fRad)
 
         // Obliquity of the ecliptic
         val ecl = Math.toRadians(23.439 - 0.0000004 * d)
@@ -76,9 +89,9 @@ object MoonCalculator {
         val sinAlt = sin(latRad) * sin(decRad) + cos(latRad) * cos(decRad) * cos(haRad)
         val alt = Math.toDegrees(asin(sinAlt))
 
-        // Fixed East (yAz) and North (xAz) components
+        // East (yAz) and North (xAz) components
         val yAz = -sin(haRad)
-        val xAz = tan(decRad) * cos(latRad) - cos(haRad) * sin(latRad)
+        val xAz = tan(decRad) * sin(latRad) - cos(haRad) * cos(latRad) // Fixed trig formula
         var az = Math.toDegrees(atan2(yAz, xAz))
         az = (az % 360 + 360) % 360 // Normalize 0-360 (North = 0, East = 90)
 
