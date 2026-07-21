@@ -190,8 +190,9 @@ object CelestialObjectsCalculator {
         val altRad = asin(sinAlt)
         val alt = Math.toDegrees(altRad)
 
-        val yAz = sin(haRad)
-        val xAz = cos(haRad) * sin(latRad) - tan(decRad) * cos(latRad)
+        // Fixed East (yAz) and North (xAz) components
+        val yAz = -sin(haRad)
+        val xAz = tan(decRad) * cos(latRad) - cos(haRad) * sin(latRad)
         var az = Math.toDegrees(atan2(yAz, xAz))
         az = (az % 360 + 360) % 360
 
