@@ -440,7 +440,7 @@ fun CalibrationScreen(
             targetCelestialBody = targetBodyName,
             dateTimeStamp = sdf.format(java.util.Date()),
             trueAzimuth = targetAz.toFloat(),
-            trueRa = getDoubleProperty(moonTarget, "ra").toFloat(),
+            trueAltitude = targetAlt.toFloat(),
             yawAkaAzimuth = offsets[0],
             pitch = offsets[1],
             roll = offsets[2]

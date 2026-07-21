@@ -20,7 +20,7 @@ data class CalibrationData(
     val targetCelestialBody: String = "Moon",
     val dateTimeStamp: String = "N/A",
     val trueAzimuth: Float = Float.NaN,
-    val trueRa: Float = Float.NaN,
+    val trueAltitude: Float = Float.NaN,
     val yawAkaAzimuth: Float = Float.NaN,
     val pitch: Float = Float.NaN,
     val roll: Float = Float.NaN
@@ -37,7 +37,10 @@ data class CalibrationData(
                 "true_azimuth",
                 if (trueAzimuth.isNaN()) "N/A" else trueAzimuth.toDouble()
             )
-            jsonObject.put("true_ra", if (trueRa.isNaN()) "N/A" else trueRa.toDouble())
+            jsonObject.put(
+                "true_altitude",
+                if (trueAltitude.isNaN()) "N/A" else trueAltitude.toDouble()
+            )
 
             jsonObject.put("azimuth_offset", azimuthOffset.toDouble())
             jsonObject.put("pitch_offset", pitchOffset.toDouble())
@@ -116,7 +119,7 @@ class CalibrationStorageManager(private val context: Context) {
 
                 // 2. Filtered numeric degree attributes present in example
                 addDegreeField("true_azimuth")
-                addDegreeField("true_ra")
+                addDegreeField("true_altitude")
                 addDegreeField("azimuth_offset")
                 addDegreeField("pitch_offset")
                 addDegreeField("roll_offset")
@@ -222,7 +225,7 @@ class CalibrationStorageManager(private val context: Context) {
             val rlOffset = jsonObject.optDouble("roll_offset", 0.0).toFloat()
 
             val trueAz = parseOptionalFloat(jsonObject, "true_azimuth")
-            val trueRa = parseOptionalFloat(jsonObject, "true_ra")
+            val trueAlt = parseOptionalFloat(jsonObject, "true_altitude")
             val yawAka = parseOptionalFloat(jsonObject, "yaw_aka_azimuth")
             val pVal = parseOptionalFloat(jsonObject, "pitch")
             val rVal = parseOptionalFloat(jsonObject, "roll")
@@ -235,7 +238,7 @@ class CalibrationStorageManager(private val context: Context) {
                 targetCelestialBody = target,
                 dateTimeStamp = dateTime,
                 trueAzimuth = if (trueAz.isNaN()) azOffset else trueAz,
-                trueRa = trueRa,
+                trueAltitude = trueAlt,
                 yawAkaAzimuth = if (yawAka.isNaN()) azOffset else yawAka,
                 pitch = if (pVal.isNaN()) ptOffset else pVal,
                 roll = if (rVal.isNaN()) rlOffset else rVal
