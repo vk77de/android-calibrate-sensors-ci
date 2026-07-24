@@ -8,6 +8,7 @@ import java.io.FileOutputStream
 import java.io.FileWriter
 import java.io.IOException
 import java.text.SimpleDateFormat
+import java.time.format.DateTimeFormatter
 import java.util.Date
 import java.util.Locale
 import org.json.JSONObject
@@ -73,6 +74,9 @@ class CalibrationStorageManager(private val context: Context) {
         private const val TAG = "CalibrationStorage"
         private const val FILE_NAME = "calibration_data_newest.json"
         private const val ALTERNATE_FILE_NAME = "moon_sensor_calibration.json"
+
+        val DATE_FORMATTER: DateTimeFormatter =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
     }
 
     private fun appendToExternalLog(payload: String, operationNotice: String) {
@@ -221,7 +225,14 @@ class CalibrationStorageManager(private val context: Context) {
 
                         val target = jsonObject.optString("target", "Moon")
                         val timestamp = jsonObject.optLong("timestamp", System.currentTimeMillis())
-                        val dateTime = jsonObject.optString("date_time_stamp", "N/A")
+
+                        val currentDatetimeFormatted =
+                            java.time.LocalDateTime.now().format(DATE_FORMATTER)
+
+                        val dateTime = jsonObject.optString(
+                            "date_time_stamp",
+                            currentDatetimeFormatted
+                        )
 
                         val azOffset = jsonObject.optDouble("azimuth_offset", 0.0).toFloat()
                         val ptOffset = jsonObject.optDouble("pitch_offset", 0.0).toFloat()
