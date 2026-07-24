@@ -87,12 +87,14 @@ class CalibrationStorageManager(private val context: Context) {
             try {
                 val jsonObject = JSONObject(payload)
 
-                if (jsonObject.has("date_time_stamp")) {
-                    val dt = jsonObject.optString("date_time_stamp")
-                    if (dt.isNotBlank() && dt != "N/A") {
-                        dateStr = dt
-                    }
-                }
+                // if (jsonObject.has("date_time_stamp")) {
+                //  val dt = jsonObject.optString("date_time_stamp")
+                // if (dt.isNotBlank() && dt != "N/A") {
+                //  dateStr = dt
+                // }
+                // }
+                dateStr =
+                    java.time.LocalDateTime.now().format(DATE_FORMATTER)
                 if (dateStr == null && jsonObject.has("timestamp")) {
                     val ts = jsonObject.optLong("timestamp", 0L)
                     if (ts > 0) {
