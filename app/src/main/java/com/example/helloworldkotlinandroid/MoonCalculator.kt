@@ -91,7 +91,7 @@ object MoonCalculator {
 
         // East (yAz) and North (xAz) components
         val yAz = -sin(haRad)
-        val xAz = tan(decRad) * sin(latRad) - cos(haRad) * cos(latRad) // Fixed trig formula
+        val xAz = tan(decRad) * cos(latRad) - cos(haRad) * sin(latRad)
         var az = Math.toDegrees(atan2(yAz, xAz))
         az = (az % 360 + 360) % 360 // Normalize 0-360 (North = 0, East = 90)
 
