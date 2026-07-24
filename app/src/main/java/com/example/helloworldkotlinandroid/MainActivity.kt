@@ -2,6 +2,7 @@ package com.example.helloworldkotlinandroid
 
 import android.Manifest
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.hardware.Sensor
 import android.hardware.SensorEvent
@@ -10,7 +11,10 @@ import android.hardware.SensorManager
 import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
+import android.net.Uri
 import android.os.Bundle
+import android.os.Environment
+import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -78,8 +82,10 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         Thread.setDefaultUncaughtExceptionHandler { _, throwable ->
             try {
-                val crashFile = File(getExternalFilesDir(null), "crash_dump.txt")
-                PrintWriter(FileWriter(crashFile)).use { throwable.printStackTrace(it) }
+                getExternalFilesDir(null)?.let { dir ->
+                    val crashFile = File(dir, "crash_dump.txt")
+                    PrintWriter(FileWriter(crashFile)).use { throwable.printStackTrace(it) }
+                }
             } catch (e: Exception) {
             }
             android.os.Process.killProcess(android.os.Process.myPid())
@@ -91,6 +97,8 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             var hasPermissions by remember { mutableStateOf(allPermissionsGranted()) }
+
+            var hasStorageAccess by remember { mutableStateOf(hasAllFilesAccess()) }
 
             val launcher =
                 rememberLauncherForActivityResult(
@@ -107,13 +115,39 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
+            val storageLauncher = rememberLauncherForActivityResult(
+                contract = ActivityResultContracts.StartActivityForResult()
+            ) {
+                hasStorageAccess = hasAllFilesAccess()
+                if (!hasStorageAccess) {
+                    Toast.makeText(
+                        this,
+                        "All-files access is required to save calibration data.",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+
             LaunchedEffect(Unit) {
                 if (!hasPermissions) {
                     launcher.launch(REQUIRED_PERMISSIONS)
                 }
             }
+            LaunchedEffect(hasPermissions) {
+                if (hasPermissions && !hasStorageAccess) {
+                    val intent = try {
+                        Intent(
+                            Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
+                            Uri.parse("package:$packageName")
+                        )
+                    } catch (e: Exception) {
+                        Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
+                    }
+                    storageLauncher.launch(intent)
+                }
+            }
 
-            if (hasPermissions) {
+            if (hasPermissions && hasStorageAccess) {
                 CelestialTrackerScreen(celestialCalibrator, storageManager)
             }
         }
@@ -121,6 +155,21 @@ class MainActivity : ComponentActivity() {
 
     private fun allPermissionsGranted() = REQUIRED_PERMISSIONS.all {
         ContextCompat.checkSelfPermission(baseContext, it) == PackageManager.PERMISSION_GRANTED
+    }
+
+    private fun hasAllFilesAccess(): Boolean = Environment.isExternalStorageManager()
+
+    private fun requestAllFilesAccess() {
+        try {
+            val intent = Intent(
+                Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
+                Uri.parse("package:$packageName")
+            )
+            startActivity(intent)
+        } catch (e: Exception) {
+            // Some OEM ROMs don't support the per-app intent; fall back to the general screen
+            startActivity(Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION))
+        }
     }
 
     companion object {
@@ -241,7 +290,7 @@ fun CelestialTrackerScreen(
                 deviceLatitude = it.latitude
                 deviceLongitude = it.longitude
             }
-        } catch (e: SecurityException) {
+        } catch (e: Exception) {
             Toast.makeText(context, "Location access tracing failure.", Toast.LENGTH_SHORT).show()
         }
 
