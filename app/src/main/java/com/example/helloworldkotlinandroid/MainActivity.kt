@@ -66,8 +66,16 @@ class SmoothedSensorEventListener(
             }
         }
 
-        System.arraycopy(smoothed, 0, event.values, 0, smoothed.size)
-        delegate.onSensorChanged(event)
+        // Do not mutate event.values in place: it's a framework-managed buffer that
+        // SensorManager may reuse/recycle for subsequent callbacks. Build a distinct
+        // SensorEvent that owns its own values array and hand that to the delegate.
+        val smoothedEvent = SensorEvent(smoothed.size).apply {
+            sensor = event.sensor
+            accuracy = event.accuracy
+            timestamp = event.timestamp
+        }
+        System.arraycopy(smoothed, 0, smoothedEvent.values, 0, smoothed.size)
+        delegate.onSensorChanged(smoothedEvent)
     }
 
     override fun onAccuracyChanged(sensor: Sensor, accuracy: Int) {
@@ -158,19 +166,6 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun hasAllFilesAccess(): Boolean = Environment.isExternalStorageManager()
-
-    private fun requestAllFilesAccess() {
-        try {
-            val intent = Intent(
-                Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
-                Uri.parse("package:$packageName")
-            )
-            startActivity(intent)
-        } catch (e: Exception) {
-            // Some OEM ROMs don't support the per-app intent; fall back to the general screen
-            startActivity(Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION))
-        }
-    }
 
     companion object {
         private val REQUIRED_PERMISSIONS =
