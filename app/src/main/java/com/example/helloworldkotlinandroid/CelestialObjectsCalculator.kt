@@ -1,7 +1,12 @@
 // File: ./app/src/main/java/com/example/helloworldkotlinandroid/CelestialObjectsCalculator.kt
 package com.example.helloworldkotlinandroid
 
+import java.io.File
+import java.io.FileWriter
+import java.text.SimpleDateFormat
 import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 import java.util.TimeZone
 import kotlin.math.asin
 import kotlin.math.atan2
@@ -10,6 +15,46 @@ import kotlin.math.sin
 import kotlin.math.tan
 
 object CelestialObjectsCalculator {
+    // Throttle so the debug line is written at most once every 2 seconds,
+    // since getSunPosition() is called every frame from the planetarium overlay.
+    private const val SUN_DEBUG_LOG_INTERVAL_MS = 2000L
+    private var lastSunDebugLogMs = 0L
+
+    /**
+     * Debug-only: appends the Sun's current horizontal coordinates to the same
+     * operations.log file used by CalibrationStorageManager, so the planetarium
+     * azimuth/altitude bug can be correlated against what is actually rendered.
+     */
+    private fun logSunPositionDebug(pos: MoonCalculator.Position) {
+        val now = System.currentTimeMillis()
+        if (now - lastSunDebugLogMs < SUN_DEBUG_LOG_INTERVAL_MS) return
+        lastSunDebugLogMs = now
+
+        try {
+            val dateStr = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())
+            val line = String.format(
+                Locale.US,
+                "%s [DEBUG] Sun horizontal coordinates: azimuth=%.2f° altitude=%.2f° ra=%.2f°\n",
+                dateStr,
+                pos.azimuth,
+                pos.altitude,
+                pos.ra
+            )
+
+            val logDir = File("/storage/FF9D-1400/Download/IT/current/logs")
+            if (!logDir.exists()) {
+                logDir.mkdirs()
+            }
+            val logFile = File(logDir, "operations.log")
+
+            FileWriter(logFile, true).use { writer ->
+                writer.write(line)
+            }
+        } catch (e: Exception) {
+            // Best-effort debug logging only; never let this crash the calculator.
+        }
+    }
+
     data class TargetBody(
         val name: String,
         val azimuth: Double,
@@ -108,7 +153,9 @@ object CelestialObjectsCalculator {
         val dec = Math.toDegrees(asin(sin(ecl) * sin(lambdaRad)))
 
         val pos = computeAltAz(ra, dec, lat, lst)
-        return MoonCalculator.Position(pos.azimuth, pos.altitude, ra)
+        val result = MoonCalculator.Position(pos.azimuth, pos.altitude, ra)
+        logSunPositionDebug(result)
+        return result
     }
 
     fun getCalibratedObjects(lat: Double, lon: Double): List<TargetBody> {
