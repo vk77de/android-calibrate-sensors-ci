@@ -66,16 +66,12 @@ class SmoothedSensorEventListener(
             }
         }
 
-        // Do not mutate event.values in place: it's a framework-managed buffer that
-        // SensorManager may reuse/recycle for subsequent callbacks. Build a distinct
-        // SensorEvent that owns its own values array and hand that to the delegate.
-        val smoothedEvent = SensorEvent(smoothed.size).apply {
-            sensor = event.sensor
-            accuracy = event.accuracy
-            timestamp = event.timestamp
-        }
-        System.arraycopy(smoothed, 0, smoothedEvent.values, 0, smoothed.size)
-        delegate.onSensorChanged(smoothedEvent)
+        // Give the delegate a fresh array rather than mutating the framework's
+        // buffer in place — SensorManager may reuse it for later callbacks.
+        // (SensorEvent has no public sized constructor, so we can't build a
+        // standalone SensorEvent; reassigning `values` avoids needing one.)
+        event.values = smoothed.copyOf()
+        delegate.onSensorChanged(event)
     }
 
     override fun onAccuracyChanged(sensor: Sensor, accuracy: Int) {
