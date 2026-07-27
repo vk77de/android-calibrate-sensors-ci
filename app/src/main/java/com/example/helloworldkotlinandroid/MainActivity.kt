@@ -66,11 +66,10 @@ class SmoothedSensorEventListener(
             }
         }
 
-        // Give the delegate a fresh array rather than mutating the framework's
-        // buffer in place — SensorManager may reuse it for later callbacks.
-        // (SensorEvent has no public sized constructor, so we can't build a
-        // standalone SensorEvent; reassigning `values` avoids needing one.)
-        event.values = smoothed.copyOf()
+        // event.values is a final field (Kotlin sees it as `val`), so it can't be
+        // reassigned. Copy the smoothed values into the existing array in place
+        // instead. Note this does mutate SensorManager's buffer directly.
+        System.arraycopy(smoothed, 0, event.values, 0, smoothed.size)
         delegate.onSensorChanged(event)
     }
 
