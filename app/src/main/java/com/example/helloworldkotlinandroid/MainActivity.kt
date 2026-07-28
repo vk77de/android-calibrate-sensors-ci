@@ -47,37 +47,6 @@ import java.io.FileWriter
 import java.io.PrintWriter
 import kotlinx.coroutines.delay
 
-class SmoothedSensorEventListener(
-    private val delegate: SensorEventListener,
-    private val alpha: Float = 0.12f
-) : SensorEventListener {
-    private var smoothedValues: FloatArray? = null
-
-    override fun onSensorChanged(event: SensorEvent) {
-        val currentValues = event.values
-        var smoothed = smoothedValues
-
-        if (smoothed == null || smoothed.size != currentValues.size) {
-            smoothed = currentValues.clone()
-            smoothedValues = smoothed
-        } else {
-            for (i in currentValues.indices) {
-                smoothed[i] = alpha * currentValues[i] + (1f - alpha) * smoothed[i]
-            }
-        }
-
-        // event.values is a final field (Kotlin sees it as `val`), so it can't be
-        // reassigned. Copy the smoothed values into the existing array in place
-        // instead. Note this does mutate SensorManager's buffer directly.
-        System.arraycopy(smoothed, 0, event.values, 0, smoothed.size)
-        delegate.onSensorChanged(event)
-    }
-
-    override fun onAccuracyChanged(sensor: Sensor, accuracy: Int) {
-        delegate.onAccuracyChanged(sensor, accuracy)
-    }
-}
-
 class MainActivity : ComponentActivity() {
     private val celestialCalibrator = CelestialCalibrator()
     private lateinit var storageManager: CalibrationStorageManager
@@ -222,8 +191,7 @@ fun CelestialTrackerScreen(
     DisposableEffect(Unit) {
         val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
         val rotVectorSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
-        var smoothedListener: SmoothedSensorEventListener? = null
-
+        
         if (rotVectorSensor == null) {
             Toast.makeText(
                 context,
@@ -231,18 +199,17 @@ fun CelestialTrackerScreen(
                 Toast.LENGTH_LONG
             ).show()
         } else {
-            smoothedListener = SmoothedSensorEventListener(calibrator, alpha = 0.12f)
             sensorManager.registerListener(
-                smoothedListener,
+                calibrator,
                 rotVectorSensor,
-                SensorManager.SENSOR_DELAY_GAME
+                SensorManager.SENSOR_DELAY_UI
             )
         }
 
         onDispose {
-            smoothedListener?.let {
-                sensorManager.unregisterListener(it)
-            }
+            
+                sensorManager.unregisterListener(calibrator)
+            
         }
     }
 
