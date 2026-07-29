@@ -348,7 +348,7 @@ fun PlanetariumScreen(
         ) {
             Text(
                 text = BuildConfig.GIT_HASH,
-                color = Color.White.copy(alpha = 0.4f),
+                color = Color.White.copy(alpha = 0.7f),
                 fontSize = 10.sp
             )
         }
