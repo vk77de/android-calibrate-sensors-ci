@@ -1,3 +1,4 @@
+// File: ./app/src/main/java/com/example/helloworldkotlinandroid/MainActivity.kt
 package com.example.helloworldkotlinandroid
 
 import android.Manifest
@@ -49,6 +50,11 @@ import kotlinx.coroutines.delay
 
 class MainActivity : ComponentActivity() {
     private val celestialCalibrator = CelestialCalibrator()
+
+    // PlanetariumProjector owns all renderer projection math;
+    // it reads calibratedMatrix from celestialCalibrator at render time.
+    private val planetariumProjector = PlanetariumProjector(celestialCalibrator)
+
     private lateinit var storageManager: CalibrationStorageManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -69,7 +75,6 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             var hasPermissions by remember { mutableStateOf(allPermissionsGranted()) }
-
             var hasStorageAccess by remember { mutableStateOf(hasAllFilesAccess()) }
 
             val launcher =
@@ -120,7 +125,11 @@ class MainActivity : ComponentActivity() {
             }
 
             if (hasPermissions && hasStorageAccess) {
-                CelestialTrackerScreen(celestialCalibrator, storageManager)
+                CelestialTrackerScreen(
+                    calibrator = celestialCalibrator,
+                    projector = planetariumProjector,
+                    storageManager = storageManager
+                )
             }
         }
     }
@@ -143,6 +152,8 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun CelestialTrackerScreen(
     calibrator: CelestialCalibrator,
+    // ← new: renderer projection math
+    projector: PlanetariumProjector,
     storageManager: CalibrationStorageManager
 ) {
     val context = LocalContext.current
@@ -257,7 +268,8 @@ fun CelestialTrackerScreen(
     NavHost(navController = navController, startDestination = "planetarium") {
         composable("planetarium") {
             PlanetariumScreen(
-                calibrator = calibrator,
+                // ← renderer receives projector, not calibrator
+                projector = projector,
                 latitude = deviceLatitude,
                 longitude = deviceLongitude,
                 frameTicker = frameTicker,
@@ -294,6 +306,7 @@ fun CelestialTrackerScreen(
                 }
 
             CalibrationScreen(
+                // ← calibration still gets calibrator directly
                 calibrator = calibrator,
                 storageManager = storageManager,
                 latitude = deviceLatitude,
@@ -322,7 +335,8 @@ fun CelestialTrackerScreen(
 
 @Composable
 fun PlanetariumScreen(
-    calibrator: CelestialCalibrator,
+    // ← was: calibrator: CelestialCalibrator
+    projector: PlanetariumProjector,
     latitude: Double,
     longitude: Double,
     frameTicker: Long,
@@ -333,7 +347,8 @@ fun PlanetariumScreen(
         CameraXPreview(modifier = Modifier.fillMaxSize()) { _ -> }
 
         CelestialOverlayCanvas(
-            calibrator = calibrator,
+            // ← was: calibrator = calibrator
+            projector = projector,
             latitude = latitude,
             longitude = longitude,
             frameTicker = frameTicker,
