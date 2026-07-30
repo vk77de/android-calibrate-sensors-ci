@@ -1,3 +1,4 @@
+// File: ./app/src/main/java/com/example/helloworldkotlinandroid/CelestialOverlayCanvas.kt
 package com.example.helloworldkotlinandroid
 
 import android.graphics.PointF
@@ -98,7 +99,8 @@ fun CameraXPreview(modifier: Modifier = Modifier, onPreviewViewCreated: (Preview
 
 @Composable
 fun CelestialOverlayCanvas(
-    calibrator: CelestialCalibrator,
+    // ← was: calibrator: CelestialCalibrator
+    projector: PlanetariumProjector,
     latitude: Double,
     longitude: Double,
     frameTicker: Long,
@@ -127,7 +129,8 @@ fun CelestialOverlayCanvas(
         )
 
         for (body in bodies) {
-            val screenPoint: PointF? = calibrator.projectOrientationToScreen(
+            // ← was: calibrator.projectOrientationToScreen(...)
+            val screenPoint: PointF? = projector.projectToScreen(
                 body.azimuth,
                 body.altitude,
                 width,
@@ -466,9 +469,7 @@ fun CalibrationScreen(
             lon = longitude, targetName = targetBodyName,
             targetAz = targetAz, targetAlt = targetAlt, offsetAz = currentAzimuthOffset,
             offsetPitch = currentPitchOffset, offsetRoll = currentRollOffset,
-            modifier = Modifier.align(
-                Alignment.TopCenter
-            )
+            modifier = Modifier.align(Alignment.TopCenter)
         )
 
         Box(
