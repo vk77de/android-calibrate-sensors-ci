@@ -167,11 +167,10 @@ fun TelemetryOverlay(
     targetName: String,
     targetAz: Double,
     targetAlt: Double,
-    offsetAz: Float,
-    offsetPitch: Float,
-    offsetRoll: Float,
+    offsetQuaternion: Quaternion,
     modifier: Modifier = Modifier
 ) {
+    val euler = offsetQuaternion.toEulerDegrees()
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -192,13 +191,16 @@ fun TelemetryOverlay(
                     Target Az:  %.2f°
                     Target Alt: %.2f°
                     
-                    --- ACTIVE CALIBRATION ---
-                    Offset Az:   %.2f°
-                    Offset Pitch: %.2f°
-                    Offset Roll:  %.2f°
+                    --- ACTIVE CALIBRATION (rotation residual) ---
+                    Offset q: (w=%.4f, x=%.4f, y=%.4f, z=%.4f)
+                    Residual angle: %.2f°
+                    ≈ Az %.2f°  Pitch %.2f°  Roll %.2f°
                 """.trimIndent(),
                 metadata, lat, lon, targetName.uppercase(),
-                targetAz, targetAlt, offsetAz, offsetPitch, offsetRoll
+                targetAz, targetAlt,
+                offsetQuaternion.w, offsetQuaternion.x, offsetQuaternion.y, offsetQuaternion.z,
+                offsetQuaternion.residualAngleDegrees(),
+                euler[0], euler[1], euler[2]
             ),
             color = Color.White,
             fontSize = 12.sp,
@@ -418,10 +420,8 @@ fun CalibrationScreen(
     frameTicker: Long,
     versionMetadata: String,
     moonTarget: Any?,
-    currentAzimuthOffset: Float,
-    currentPitchOffset: Float,
-    currentRollOffset: Float,
-    onUpdateOffsets: (Float, Float, Float) -> Unit,
+    currentCalibrationOffset: Quaternion,
+    onUpdateOffsets: (Quaternion) -> Unit,
     onNavigateToPlanetarium: () -> Unit,
     modifier: Modifier = Modifier,
     targetBodyName: String = "Moon"
@@ -431,25 +431,25 @@ fun CalibrationScreen(
 
     val sdf = remember { java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US) }
     val triggerAction = {
-        val offsets = calibrator.performCelestialCalibration(
+        // Works the same regardless of which body (Moon, Sun just after sunset, or Venus)
+        // was sighted — only targetAz/targetAlt differ between them.
+        val offsetQuaternion = calibrator.performCelestialCalibration(
             targetAz.toFloat(),
             targetAlt.toFloat()
         )
         val data = CalibrationData(
             timestamp = System.currentTimeMillis(),
-            azimuthOffset = offsets[0],
-            pitchOffset = offsets[1],
-            rollOffset = offsets[2],
+            offsetQw = offsetQuaternion.w,
+            offsetQx = offsetQuaternion.x,
+            offsetQy = offsetQuaternion.y,
+            offsetQz = offsetQuaternion.z,
             targetCelestialBody = targetBodyName,
             dateTimeStamp = sdf.format(java.util.Date()),
             trueAzimuth = targetAz.toFloat(),
-            trueAltitude = targetAlt.toFloat(),
-            yawAkaAzimuth = offsets[0],
-            pitch = offsets[1],
-            roll = offsets[2]
+            trueAltitude = targetAlt.toFloat()
         )
         if (storageManager.writeCalibrationToAllStorages(data)) {
-            onUpdateOffsets(offsets[0], offsets[1], offsets[2])
+            onUpdateOffsets(offsetQuaternion)
         }
     }
 
@@ -465,10 +465,13 @@ fun CalibrationScreen(
         }
 
         TelemetryOverlay(
-            metadata = versionMetadata, lat = latitude,
-            lon = longitude, targetName = targetBodyName,
-            targetAz = targetAz, targetAlt = targetAlt, offsetAz = currentAzimuthOffset,
-            offsetPitch = currentPitchOffset, offsetRoll = currentRollOffset,
+            metadata = versionMetadata,
+            lat = latitude,
+            lon = longitude,
+            targetName = targetBodyName,
+            targetAz = targetAz,
+            targetAlt = targetAlt,
+            offsetQuaternion = currentCalibrationOffset,
             modifier = Modifier.align(Alignment.TopCenter)
         )
 

@@ -41,10 +41,7 @@ object CelestialObjectsCalculator {
                 pos.ra
             )
 
-            val logDir = File("/storage/FF9D-1400/Download/IT/current/logs")
-            if (!logDir.exists()) {
-                logDir.mkdirs()
-            }
+            val logDir = OperationsLog.resolveLogDir() ?: return
             val logFile = File(logDir, "operations.log")
 
             FileWriter(logFile, true).use { writer ->

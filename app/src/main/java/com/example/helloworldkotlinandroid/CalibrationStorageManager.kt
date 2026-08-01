@@ -13,19 +13,29 @@ import java.util.Date
 import java.util.Locale
 import org.json.JSONObject
 
+/**
+ * Result of a celestial calibration sighting.
+ *
+ * The calibration offset itself ([offsetQw]/[offsetQx]/[offsetQy]/[offsetQz]) is stored as
+ * a unit rotation-residual quaternion (aka rotation error / attitude error) rather than as
+ * separate azimuth/pitch/roll scalars, since a quaternion has no gimbal-lock singularities
+ * and composes cleanly. [targetCelestialBody] records which of the three supported sighting
+ * targets — "Moon", "Sun" (typically sighted just after sunset), or "Venus" — produced it.
+ */
 data class CalibrationData(
     val timestamp: Long,
-    val azimuthOffset: Float,
-    val pitchOffset: Float,
-    val rollOffset: Float,
+    val offsetQw: Float,
+    val offsetQx: Float,
+    val offsetQy: Float,
+    val offsetQz: Float,
     val targetCelestialBody: String = "Moon",
     val dateTimeStamp: String = "N/A",
     val trueAzimuth: Float = Float.NaN,
-    val trueAltitude: Float = Float.NaN,
-    val yawAkaAzimuth: Float = Float.NaN,
-    val pitch: Float = Float.NaN,
-    val roll: Float = Float.NaN
+    val trueAltitude: Float = Float.NaN
 ) {
+    /** The calibration offset as a [Quaternion], for convenient use with [CelestialCalibrator]. */
+    fun offsetQuaternion(): Quaternion = Quaternion(offsetQw, offsetQx, offsetQy, offsetQz)
+
     fun toJsonString(): String {
         return try {
             val jsonObject = JSONObject()
@@ -43,16 +53,19 @@ data class CalibrationData(
                 if (trueAltitude.isNaN()) "N/A" else trueAltitude.toDouble()
             )
 
-            jsonObject.put("azimuth_offset", azimuthOffset.toDouble())
-            jsonObject.put("pitch_offset", pitchOffset.toDouble())
-            jsonObject.put("roll_offset", rollOffset.toDouble())
+            // Rotation-residual quaternion: the authoritative calibration offset.
+            jsonObject.put("offset_qw", offsetQw.toDouble())
+            jsonObject.put("offset_qx", offsetQx.toDouble())
+            jsonObject.put("offset_qy", offsetQy.toDouble())
+            jsonObject.put("offset_qz", offsetQz.toDouble())
 
-            jsonObject.put(
-                "yaw_aka_azimuth",
-                if (yawAkaAzimuth.isNaN()) "N/A" else yawAkaAzimuth.toDouble()
-            )
-            jsonObject.put("pitch", if (pitch.isNaN()) "N/A" else pitch.toDouble())
-            jsonObject.put("roll", if (roll.isNaN()) "N/A" else roll.toDouble())
+            // Human-readable derived fields (informational only, not authoritative).
+            val q = offsetQuaternion()
+            jsonObject.put("residual_angle_deg", q.residualAngleDegrees().toDouble())
+            val euler = q.toEulerDegrees()
+            jsonObject.put("residual_yaw_deg", euler[0].toDouble())
+            jsonObject.put("residual_pitch_deg", euler[1].toDouble())
+            jsonObject.put("residual_roll_deg", euler[2].toDouble())
 
             jsonObject.toString(4)
         } catch (e: Exception) {
@@ -60,9 +73,10 @@ data class CalibrationData(
             {
                 "target": "$targetCelestialBody",
                 "timestamp": $timestamp,
-                "azimuth_offset": $azimuthOffset,
-                "pitch_offset": $pitchOffset,
-                "roll_offset": $rollOffset
+                "offset_qw": $offsetQw,
+                "offset_qx": $offsetQx,
+                "offset_qy": $offsetQy,
+                "offset_qz": $offsetQz
             }
             """.trimIndent()
         }
@@ -79,6 +93,12 @@ class CalibrationStorageManager(private val context: Context) {
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
     }
 
+    init {
+        // Lets OperationsLog see this app's external-files-dirs (and thus find any
+        // physical SD card) instead of relying on a hardcoded volume ID.
+        OperationsLog.configure(context)
+    }
+
     private fun appendToExternalLog(payload: String, operationNotice: String) {
         try {
             var dateStr: String? = null
@@ -87,14 +107,12 @@ class CalibrationStorageManager(private val context: Context) {
             try {
                 val jsonObject = JSONObject(payload)
 
-                // if (jsonObject.has("date_time_stamp")) {
-                //  val dt = jsonObject.optString("date_time_stamp")
-                // if (dt.isNotBlank() && dt != "N/A") {
-                //  dateStr = dt
-                // }
-                // }
-                dateStr =
-                    java.time.LocalDateTime.now().format(DATE_FORMATTER)
+                if (jsonObject.has("date_time_stamp")) {
+                    val dt = jsonObject.optString("date_time_stamp")
+                    if (dt.isNotBlank() && dt != "N/A") {
+                        dateStr = dt
+                    }
+                }
                 if (dateStr == null && jsonObject.has("timestamp")) {
                     val ts = jsonObject.optLong("timestamp", 0L)
                     if (ts > 0) {
@@ -123,12 +141,25 @@ class CalibrationStorageManager(private val context: Context) {
                     }
                 }
 
-                // 2. Filtered numeric degree attributes present in example
+                // Helper for plain (non-degree) numeric fields, e.g. quaternion components
+                fun addNumericField(key: String, digits: Int = 4) {
+                    if (jsonObject.has(key) && !jsonObject.isNull(key)) {
+                        val value = jsonObject.optDouble(key, Double.NaN)
+                        if (!value.isNaN()) {
+                            val formattedVal = String.format(Locale.US, "%.${digits}f", value)
+                            pseudoJsonParts.add("\"$key\":$formattedVal")
+                        }
+                    }
+                }
+
+                // 2. Filtered attributes present in example
                 addDegreeField("true_azimuth")
                 addDegreeField("true_altitude")
-                addDegreeField("azimuth_offset")
-                addDegreeField("pitch_offset")
-                addDegreeField("roll_offset")
+                addNumericField("offset_qw")
+                addNumericField("offset_qx")
+                addNumericField("offset_qy")
+                addNumericField("offset_qz")
+                addDegreeField("residual_angle_deg")
             } catch (e: Exception) {
                 // If payload is empty or not valid JSON, pseudo-JSON array remains empty
             }
@@ -173,9 +204,10 @@ class CalibrationStorageManager(private val context: Context) {
             }
             logLineBuilder.append("\n")
 
-            val logDir = File("/storage/FF9D-1400/Download/IT/current/logs")
-            if (!logDir.exists()) {
-                logDir.mkdirs()
+            val logDir = OperationsLog.resolveLogDir()
+            if (logDir == null) {
+                Log.e(TAG, "Could not resolve a writable operations-log directory; skipping.")
+                return
             }
             val logFile = File(logDir, "operations.log")
 
@@ -236,28 +268,40 @@ class CalibrationStorageManager(private val context: Context) {
                             currentDatetimeFormatted
                         )
 
-                        val azOffset = jsonObject.optDouble("azimuth_offset", 0.0).toFloat()
-                        val ptOffset = jsonObject.optDouble("pitch_offset", 0.0).toFloat()
-                        val rlOffset = jsonObject.optDouble("roll_offset", 0.0).toFloat()
-
                         val trueAz = parseOptionalFloat(jsonObject, "true_azimuth")
                         val trueAlt = parseOptionalFloat(jsonObject, "true_altitude")
-                        val yawAka = parseOptionalFloat(jsonObject, "yaw_aka_azimuth")
-                        val pVal = parseOptionalFloat(jsonObject, "pitch")
-                        val rVal = parseOptionalFloat(jsonObject, "roll")
+
+                        // Current format: the calibration offset is stored directly as a
+                        // rotation-residual quaternion.
+                        val qw = parseOptionalFloat(jsonObject, "offset_qw")
+                        val qx = parseOptionalFloat(jsonObject, "offset_qx")
+                        val qy = parseOptionalFloat(jsonObject, "offset_qy")
+                        val qz = parseOptionalFloat(jsonObject, "offset_qz")
+
+                        val offsetQuaternion = if (!qw.isNaN() && !qx.isNaN() &&
+                            !qy.isNaN() && !qz.isNaN()
+                        ) {
+                            Quaternion(qw, qx, qy, qz).normalized()
+                        } else {
+                            // Legacy format (pre-quaternion calibration files, e.g.
+                            // ALTERNATE_FILE_NAME): translate the stored azimuth/pitch/roll
+                            // offset into an equivalent quaternion.
+                            val legacyAz = jsonObject.optDouble("azimuth_offset", 0.0).toFloat()
+                            val legacyPt = jsonObject.optDouble("pitch_offset", 0.0).toFloat()
+                            val legacyRl = jsonObject.optDouble("roll_offset", 0.0).toFloat()
+                            Quaternion.fromEulerDegrees(legacyAz, legacyPt, legacyRl)
+                        }
 
                         val data = CalibrationData(
                             timestamp = timestamp,
-                            azimuthOffset = azOffset,
-                            pitchOffset = ptOffset,
-                            rollOffset = rlOffset,
+                            offsetQw = offsetQuaternion.w,
+                            offsetQx = offsetQuaternion.x,
+                            offsetQy = offsetQuaternion.y,
+                            offsetQz = offsetQuaternion.z,
                             targetCelestialBody = target,
                             dateTimeStamp = dateTime,
-                            trueAzimuth = if (trueAz.isNaN()) azOffset else trueAz,
-                            trueAltitude = trueAlt,
-                            yawAkaAzimuth = if (yawAka.isNaN()) azOffset else yawAka,
-                            pitch = if (pVal.isNaN()) ptOffset else pVal,
-                            roll = if (rVal.isNaN()) rlOffset else rVal
+                            trueAzimuth = trueAz,
+                            trueAltitude = trueAlt
                         )
 
                         appendToExternalLog(jsonString, "Loading JSON data from $fileName")

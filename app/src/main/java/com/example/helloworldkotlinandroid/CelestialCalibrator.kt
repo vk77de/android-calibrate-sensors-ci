@@ -6,8 +6,6 @@ import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.opengl.Matrix
-import kotlin.math.cos
-import kotlin.math.sin
 
 /**
  * Manages all calibration-mode mathematics and live sensor fusion.
@@ -16,9 +14,12 @@ import kotlin.math.sin
  * ────────────────
  *  • Continuously converts the raw TYPE_ROTATION_VECTOR sensor stream into
  *    [rawSensorMatrix] and (once calibrated) into [calibratedMatrix].
- *  • [setCalibrationOffsets]       — builds the offset matrix from stored az/pitch/roll scalars.
- *  • [performCelestialCalibration] — computes the offset by aligning the sensor pose to a
- *                                    known celestial body position at calibration time.
+ *  • [setCalibrationOffset]        — rebuilds the offset matrix from a stored [Quaternion].
+ *  • [performCelestialCalibration] — computes the rotation *residual* (the calibration
+ *                                    offset, aka rotation/attitude error) between the raw
+ *                                    sensor pose and the true pose implied by sighting a
+ *                                    celestial body (Moon, Sun just after sunset, or Venus)
+ *                                    at calibration time, returned as a unit [Quaternion].
  *
  * Planetarium rendering
  * ─────────────────────
@@ -33,7 +34,7 @@ class CelestialCalibrator : SensorEventListener {
 
     /**
      * 4×4 column-major offset matrix that maps the raw sensor frame to the true celestial frame.
-     * Populated by [setCalibrationOffsets] or [performCelestialCalibration].
+     * Populated by [setCalibrationOffset] or [performCelestialCalibration].
      */
     val calibrationOffsetMatrix = FloatArray(16)
 
@@ -55,34 +56,34 @@ class CelestialCalibrator : SensorEventListener {
     //  Calibration mathematics
     // ──────────────────────────────────────────────────────────────────────────────
 
-    fun setCalibrationOffsets(az: Float, pt: Float, rl: Float) {
-        val azRad = Math.toRadians(az.toDouble())
-        val ptRad = Math.toRadians(pt.toDouble())
-        val rlRad = Math.toRadians(rl.toDouble())
-
-        val sinAz = sin(azRad).toFloat()
-        val cosAz = cos(azRad).toFloat()
-        val sinPt = sin(ptRad).toFloat()
-        val cosPt = cos(ptRad).toFloat()
-        val sinRl = sin(rlRad).toFloat()
-        val cosRl = cos(rlRad).toFloat()
-
-        Matrix.setIdentityM(calibrationOffsetMatrix, 0)
-
-        calibrationOffsetMatrix[0] = cosAz * cosRl - sinAz * sinPt * sinRl
-        calibrationOffsetMatrix[1] = sinAz * cosPt
-        calibrationOffsetMatrix[2] = cosAz * sinRl + sinAz * sinPt * cosRl
-        calibrationOffsetMatrix[4] = -sinAz * cosRl - cosAz * sinPt * sinRl
-        calibrationOffsetMatrix[5] = cosAz * cosPt
-        calibrationOffsetMatrix[6] = -sinAz * sinRl + cosAz * sinPt * cosRl
-        calibrationOffsetMatrix[8] = -sinRl * cosPt
-        calibrationOffsetMatrix[9] = -sinPt
-        calibrationOffsetMatrix[10] = cosRl * cosPt
-
+    /**
+     * Restores a previously computed rotation-residual [quaternion] (e.g. loaded from
+     * storage) as the active [calibrationOffsetMatrix].
+     */
+    fun setCalibrationOffset(quaternion: Quaternion) {
+        val matrix = quaternion.normalized().toRotationMatrix()
+        System.arraycopy(matrix, 0, calibrationOffsetMatrix, 0, 16)
         isCalibrated = true
     }
 
-    fun performCelestialCalibration(trueAzimuth: Float, trueAltitude: Float): FloatArray {
+    /**
+     * Performs a celestial calibration sighting and returns the resulting rotation
+     * *residual* — the calibration offset, aka rotation error / attitude error — as a
+     * unit [Quaternion].
+     *
+     * The same sighting math works regardless of which body was used to aim the device:
+     * the Moon, the Sun (typically sighted just after sunset, near the horizon), or the
+     * planet Venus. Only [trueAzimuth]/[trueAltitude] — the body's computed true
+     * horizontal position at the moment of sighting — differ between bodies; the caller
+     * supplies whichever body's position it looked up (see [CelestialObjectsCalculator]
+     * and [MoonCalculator]).
+     *
+     * @param trueAzimuth  True azimuth of the sighted body, in degrees (0° = North).
+     * @param trueAltitude True altitude of the sighted body, in degrees above horizon.
+     * @return The rotation-residual quaternion mapping the raw sensor frame to the true
+     *         celestial frame. Also stored as a matrix in [calibrationOffsetMatrix].
+     */
+    fun performCelestialCalibration(trueAzimuth: Float, trueAltitude: Float): Quaternion {
         val trueRotationMatrix = FloatArray(16)
         Matrix.setIdentityM(trueRotationMatrix, 0)
         Matrix.rotateM(trueRotationMatrix, 0, -trueAzimuth, 0f, 0f, 1f)
@@ -101,13 +102,7 @@ class CelestialCalibrator : SensorEventListener {
         )
         isCalibrated = true
 
-        val orientationRadians = FloatArray(3)
-        SensorManager.getOrientation(calibrationOffsetMatrix, orientationRadians)
-        return floatArrayOf(
-            Math.toDegrees(orientationRadians[0].toDouble()).toFloat(),
-            Math.toDegrees(orientationRadians[1].toDouble()).toFloat(),
-            Math.toDegrees(orientationRadians[2].toDouble()).toFloat()
-        )
+        return Quaternion.fromRotationMatrix(calibrationOffsetMatrix)
     }
 
     // ──────────────────────────────────────────────────────────────────────────────

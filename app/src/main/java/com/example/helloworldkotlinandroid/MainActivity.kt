@@ -161,9 +161,9 @@ fun CelestialTrackerScreen(
 
     var deviceLatitude by remember { mutableStateOf(0.0) }
     var deviceLongitude by remember { mutableStateOf(0.0) }
-    var currentAzimuthOffset by remember { mutableStateOf(0.0f) }
-    var currentPitchOffset by remember { mutableStateOf(0.0f) }
-    var currentRollOffset by remember { mutableStateOf(0.0f) }
+    // Calibration offset (rotation residual / attitude error), from the last completed
+    // celestial sighting — Moon, Sun just after sunset, or Venus.
+    var currentCalibrationOffset by remember { mutableStateOf(Quaternion.IDENTITY) }
     var versionMetadata by remember { mutableStateOf("Version metadata unavailable") }
     var frameTicker by remember { mutableStateOf(0L) }
     var selectedCalibrationTarget by remember { mutableStateOf("Moon") }
@@ -188,14 +188,8 @@ fun CelestialTrackerScreen(
 
     LaunchedEffect(Unit) {
         storageManager.readLatestCalibration()?.let { saved ->
-            currentAzimuthOffset = saved.azimuthOffset
-            currentPitchOffset = saved.pitchOffset
-            currentRollOffset = saved.rollOffset
-            calibrator.setCalibrationOffsets(
-                saved.azimuthOffset,
-                saved.pitchOffset,
-                saved.rollOffset
-            )
+            currentCalibrationOffset = saved.offsetQuaternion()
+            calibrator.setCalibrationOffset(currentCalibrationOffset)
         }
     }
 
@@ -315,13 +309,9 @@ fun CelestialTrackerScreen(
                 versionMetadata = versionMetadata,
                 moonTarget = targetBody,
                 targetBodyName = selectedCalibrationTarget,
-                currentAzimuthOffset = currentAzimuthOffset,
-                currentPitchOffset = currentPitchOffset,
-                currentRollOffset = currentRollOffset,
-                onUpdateOffsets = { az: Float, pitch: Float, roll: Float ->
-                    currentAzimuthOffset = az
-                    currentPitchOffset = pitch
-                    currentRollOffset = roll
+                currentCalibrationOffset = currentCalibrationOffset,
+                onUpdateOffsets = { offsetQuaternion: Quaternion ->
+                    currentCalibrationOffset = offsetQuaternion
                 },
                 onNavigateToPlanetarium = {
                     navController.navigate("planetarium") {
