@@ -43,11 +43,7 @@ object OperationsLog {
 
         val candidates = mutableListOf<File>()
 
-        // 1. Primary shared storage — works once MANAGE_EXTERNAL_STORAGE is granted,
-        //    and needs no volume ID since it's always the device's main storage.
-        candidates.add(File(Environment.getExternalStorageDirectory(), RELATIVE_LOG_PATH))
-
-        // 2. Any physical SD card visible through the app's external-files-dirs API.
+        // 1. Any physical SD card visible through the app's external-files-dirs API.
         //    getExternalFilesDirs(null) returns .../Android/data/<pkg>/files on each
         //    mounted volume; walk up to the volume root and apply the relative path.
         appContext?.getExternalFilesDirs(null)?.forEach { filesDir ->
@@ -56,13 +52,18 @@ object OperationsLog {
             root?.let { candidates.add(File(it, RELATIVE_LOG_PATH)) }
         }
 
-        // 3. Fallback: scan /storage directly for any other writable mounted volume,
+        // 2. Fallback: scan /storage directly for any other writable mounted volume,
         //    in case getExternalFilesDirs didn't expose it.
         File("/storage").listFiles()?.forEach { volume ->
             if (volume.isDirectory && volume.name != "self" && volume.canWrite()) {
                 candidates.add(File(volume, RELATIVE_LOG_PATH))
             }
         }
+
+        // 3. Ultimate fallback: Primary shared storage
+        // works once MANAGE_EXTERNAL_STORAGE is granted,
+        //    and needs no volume ID since it's always the device's main storage.
+        candidates.add(File(Environment.getExternalStorageDirectory(), RELATIVE_LOG_PATH))
 
         for (candidate in candidates) {
             try {
