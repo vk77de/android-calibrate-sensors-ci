@@ -40,6 +40,21 @@ data class Quaternion(val w: Float, val x: Float, val y: Float, val z: Float) {
     )
 
     /**
+     * Rotates the 3-vector [v] by this unit quaternion using the Hamilton
+     * sandwich product: v' = q ⊗ v ⊗ q⁻¹ (with q⁻¹ = [conjugate] for a unit
+     * quaternion). [v] must have length 3 ([x, y, z]); returns a new length-3
+     * [FloatArray].
+     *
+     * This is what [PlanetariumProjector] uses in place of the old
+     * `Matrix.multiplyMV` world/device-space transform.
+     */
+    fun rotateVector(v: FloatArray): FloatArray {
+        val pure = Quaternion(0f, v[0], v[1], v[2])
+        val rotated = this * pure * conjugate()
+        return floatArrayOf(rotated.x, rotated.y, rotated.z)
+    }
+
+    /**
      * Total angular residual represented by this quaternion, in degrees.
      * Useful as a single "how far off is the calibration" telemetry number.
      */
