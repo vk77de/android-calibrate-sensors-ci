@@ -2,7 +2,6 @@
 package com.example.helloworldkotlinandroid
 
 import android.graphics.PointF
-import android.opengl.Matrix
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -10,7 +9,8 @@ import kotlin.math.sin
  * Handles all mathematical projection operations exclusively for the planetarium renderer.
  *
  * Converts celestial coordinates (azimuth + altitude) into 2-D screen pixel positions
- * using the live calibrated rotation matrix maintained by [CelestialCalibrator].
+ * using the live calibrated orientation quaternion (q_real) maintained by
+ * [CelestialCalibrator].
  *
  * Coordinate conventions
  * ──────────────────────
@@ -21,9 +21,23 @@ import kotlin.math.sin
  * Projection pipeline
  * ───────────────────
  *  1. Spherical → Cartesian world-space vector
- *  2. World vector × calibrated device-orientation matrix  →  device-space vector
- *  3. Objects behind the camera (deviceVector[2] ≥ 0) are culled (return null)
+ *  2. World vector rotated into device space by q_real⁻¹  →  device-space vector
+ *  3. Objects behind the camera (deviceVector.z ≥ 0) are culled (return null)
  *  4. Perspective divide with a fixed focal factor  →  screen pixel coordinates
+ *
+ * Why the *inverse* of q_real
+ * ────────────────────────────
+ * [CelestialCalibrator.calibratedQuaternion] (q_real = q_c ⊗ q_os) uses the same
+ * device → world convention as the underlying Android rotation sensor. To take a
+ * world-space celestial direction and express it in device/camera space — which is
+ * what step 2 needs — the *inverse* rotation must be applied. For a unit quaternion
+ * the inverse is simply its conjugate, so step 2 uses
+ * `calibrator.calibratedQuaternion.conjugate().rotateVector(worldVector)`.
+ *
+ * This replaces the previous `Matrix.multiplyMV(..., calibratedMatrix, ..., worldVector, ...)`
+ * call, which applied the calibrated matrix directly (i.e. the forward, device→world
+ * transform) to a world-space vector — the confirmed source of the 180°/altitude-flip
+ * bug in planetarium mode.
  */
 class PlanetariumProjector(private val calibrator: CelestialCalibrator) {
 
@@ -45,11 +59,10 @@ class PlanetariumProjector(private val calibrator: CelestialCalibrator) {
         val worldY = cos(altRad) * cos(azRad)
         val worldZ = sin(altRad)
 
-        val worldVector = floatArrayOf(worldX.toFloat(), worldY.toFloat(), worldZ.toFloat(), 1.0f)
-        val deviceVector = FloatArray(4)
+        val worldVector = floatArrayOf(worldX.toFloat(), worldY.toFloat(), worldZ.toFloat())
 
-        // ── Step 2: Apply the calibrated device-orientation matrix ──
-        Matrix.multiplyMV(deviceVector, 0, calibrator.calibratedMatrix, 0, worldVector, 0)
+        // ── Step 2: World → device space via q_real⁻¹ (conjugate of q_real) ──
+        val deviceVector = calibrator.calibratedQuaternion.conjugate().rotateVector(worldVector)
 
         // ── Step 3: Cull objects behind the camera ──
         //    In device space, the camera looks along −Z, so objects with Z ≥ 0 are behind.
