@@ -131,8 +131,9 @@ fun CelestialOverlayCanvas(
         for (body in bodies) {
             // ← was: calibrator.projectOrientationToScreen(...)
             val screenPoint: PointF? = projector.projectToScreen(
-                body.azimuth,
-                body.altitude,
+                body.east,
+                body.north,
+                body.up,
                 width,
                 height
             )
@@ -327,21 +328,6 @@ fun SunIcon(onClick: () -> Unit, modifier: Modifier = Modifier) {
     }
 }
 
-private fun getDoubleProperty(obj: Any?, propName: String): Double {
-    if (obj == null) return 0.0
-    return try {
-        val capitalized = propName.substring(0, 1).uppercase() + propName.substring(1)
-        val getterName = "get$capitalized"
-        val method = obj.javaClass.methods.firstOrNull {
-            it.name == getterName || it.name == propName
-        }
-        val value = method?.invoke(obj) ?: 0.0
-        (value as Number).toDouble()
-    } catch (e: Exception) {
-        0.0
-    }
-}
-
 @Composable
 fun CalibrationSelectionScreen(
     onSelectTarget: (String) -> Unit,
@@ -419,37 +405,48 @@ fun CalibrationScreen(
     longitude: Double,
     frameTicker: Long,
     versionMetadata: String,
-    moonTarget: Any?,
+    moonTarget: MoonCalculator.EnuVector?,
     currentCalibrationOffset: Quaternion,
     onUpdateOffsets: (Quaternion) -> Unit,
     onNavigateToPlanetarium: () -> Unit,
     modifier: Modifier = Modifier,
     targetBodyName: String = "Moon"
 ) {
-    val targetAz = getDoubleProperty(moonTarget, "azimuth")
-    val targetAlt = getDoubleProperty(moonTarget, "altitude")
+    // Az/Alt derived only for the telemetry display and the stored CalibrationData record —
+    // the calibration math itself (below) uses the ENU vector directly, no az/alt
+    // intermediate, matching MoonCalculator/CelestialObjectsCalculator.
+    val targetAz: Double
+    val targetAlt: Double
+    if (moonTarget != null) {
+        targetAlt = Math.toDegrees(kotlin.math.asin(moonTarget.up.coerceIn(-1.0, 1.0)))
+        var az = Math.toDegrees(kotlin.math.atan2(moonTarget.east, moonTarget.north))
+        az = (az % 360 + 360) % 360
+        targetAz = az
+    } else {
+        targetAz = 0.0
+        targetAlt = 0.0
+    }
 
     val sdf = remember { java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US) }
     val triggerAction = {
         // Works the same regardless of which body (Moon, Sun just after sunset, or Venus)
-        // was sighted — only targetAz/targetAlt differ between them.
-        val offsetQuaternion = calibrator.performCelestialCalibration(
-            targetAz.toFloat(),
-            targetAlt.toFloat()
-        )
-        val data = CalibrationData(
-            timestamp = System.currentTimeMillis(),
-            offsetQw = offsetQuaternion.w,
-            offsetQx = offsetQuaternion.x,
-            offsetQy = offsetQuaternion.y,
-            offsetQz = offsetQuaternion.z,
-            targetCelestialBody = targetBodyName,
-            dateTimeStamp = sdf.format(java.util.Date()),
-            trueAzimuth = targetAz.toFloat(),
-            trueAltitude = targetAlt.toFloat()
-        )
-        if (storageManager.writeCalibrationToAllStorages(data)) {
-            onUpdateOffsets(offsetQuaternion)
+        // was sighted — only moonTarget's ENU direction differs between them.
+        if (moonTarget != null) {
+            val offsetQuaternion = calibrator.performCelestialCalibration(moonTarget)
+            val data = CalibrationData(
+                timestamp = System.currentTimeMillis(),
+                offsetQw = offsetQuaternion.w,
+                offsetQx = offsetQuaternion.x,
+                offsetQy = offsetQuaternion.y,
+                offsetQz = offsetQuaternion.z,
+                targetCelestialBody = targetBodyName,
+                dateTimeStamp = sdf.format(java.util.Date()),
+                trueAzimuth = targetAz.toFloat(),
+                trueAltitude = targetAlt.toFloat()
+            )
+            if (storageManager.writeCalibrationToAllStorages(data)) {
+                onUpdateOffsets(offsetQuaternion)
+            }
         }
     }
 

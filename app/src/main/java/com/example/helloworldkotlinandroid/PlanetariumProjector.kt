@@ -2,28 +2,25 @@
 package com.example.helloworldkotlinandroid
 
 import android.graphics.PointF
-import kotlin.math.cos
-import kotlin.math.sin
 
 /**
  * Handles all mathematical projection operations exclusively for the planetarium renderer.
  *
- * Converts celestial coordinates (azimuth + altitude) into 2-D screen pixel positions
- * using the live calibrated orientation quaternion (q_real) maintained by
- * [CelestialCalibrator].
+ * Converts a celestial body's world-frame ENU (East, North, Up) unit vector into a 2-D
+ * screen pixel position using the live calibrated orientation quaternion (q_real)
+ * maintained by [CelestialCalibrator]. No azimuth/altitude intermediate is ever formed,
+ * consistent with [MoonCalculator] and [CelestialObjectsCalculator].
  *
  * Coordinate conventions
  * ──────────────────────
- *  • Azimuth  : degrees, 0 ° = North, increases clockwise (East = 90 °)
- *  • Altitude : degrees above the horizon  (zenith = 90 °, nadir = −90 °)
- *  • Screen   : origin at top-left; +X right, +Y down
+ *  • World ENU : East/North/Up unit-vector components, right-handed, Y = North, Z = up
+ *  • Screen    : origin at top-left; +X right, +Y down
  *
  * Projection pipeline
  * ───────────────────
- *  1. Spherical → Cartesian world-space vector
- *  2. World vector rotated into device space by q_real⁻¹  →  device-space vector
- *  3. Objects behind the camera (deviceVector.z ≥ 0) are culled (return null)
- *  4. Perspective divide with a fixed focal factor  →  screen pixel coordinates
+ *  1. World-space ENU vector rotated into device space by q_real⁻¹  →  device-space vector
+ *  2. Objects behind the camera (deviceVector.z ≥ 0) are culled (return null)
+ *  3. Perspective divide with a fixed focal factor  →  screen pixel coordinates
  *
  * Why the *inverse* of q_real
  * ────────────────────────────
@@ -42,33 +39,25 @@ import kotlin.math.sin
 class PlanetariumProjector(private val calibrator: CelestialCalibrator) {
 
     /**
-     * Projects a celestial object at ([azimuth], [altitude]) onto the screen.
+     * Projects a celestial object given as a world-frame ENU unit vector onto the screen.
      *
-     * @param azimuth  Horizontal angle in degrees (0 ° = North, clockwise).
-     * @param altitude Vertical angle in degrees above the horizon.
+     * @param east, north, up  World-frame East/North/Up unit-vector components of the
+     *                          body's direction (see [MoonCalculator.EnuVector]).
      * @param width    Viewport width in pixels.
      * @param height   Viewport height in pixels.
      * @return Screen position as [PointF], or **null** if the object is behind the viewer.
      */
-    fun projectToScreen(azimuth: Double, altitude: Double, width: Int, height: Int): PointF? {
-        val azRad = Math.toRadians(azimuth)
-        val altRad = Math.toRadians(altitude)
+    fun projectToScreen(east: Double, north: Double, up: Double, width: Int, height: Int): PointF? {
+        val worldVector = floatArrayOf(east.toFloat(), north.toFloat(), up.toFloat())
 
-        // ── Step 1: Spherical → Cartesian (right-handed, Y = North, Z = up) ──
-        val worldX = cos(altRad) * sin(azRad)
-        val worldY = cos(altRad) * cos(azRad)
-        val worldZ = sin(altRad)
-
-        val worldVector = floatArrayOf(worldX.toFloat(), worldY.toFloat(), worldZ.toFloat())
-
-        // ── Step 2: World → device space via q_real⁻¹ (conjugate of q_real) ──
+        // ── Step 1: World → device space via q_real⁻¹ (conjugate of q_real) ──
         val deviceVector = calibrator.calibratedQuaternion.conjugate().rotateVector(worldVector)
 
-        // ── Step 3: Cull objects behind the camera ──
+        // ── Step 2: Cull objects behind the camera ──
         //    In device space, the camera looks along −Z, so objects with Z ≥ 0 are behind.
         if (deviceVector[2] >= 0f) return null
 
-        // ── Step 4: Perspective divide → screen pixel coordinates ──
+        // ── Step 3: Perspective divide → screen pixel coordinates ──
         //    cameraFocalFactor approximates a ~42 ° half-FOV for a typical phone held upright.
         val centerX = width / 2f
         val centerY = height / 2f
