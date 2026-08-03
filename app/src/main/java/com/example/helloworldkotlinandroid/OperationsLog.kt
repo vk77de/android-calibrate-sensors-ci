@@ -39,14 +39,30 @@ object OperationsLog {
 
     /** Returns a writable log directory, creating it if necessary, or null if none was found. */
     fun resolveLogDir(): File? {
+        // Return the cached path early ONLY if it was
+        // previously resolved and is still valid on disk.
+        // (Because we don't cache on null appContext,
+        // a non-null cachedDir guarantees a valid prior resolution.)
+
         cachedDir?.let { if (it.exists() || it.mkdirs()) return it }
+
+        val context = appContext ?: run {
+            Log.w(
+                "OperationsLog",
+                "resolveLogDir called " +
+                    "before OperationsLog.configure(context)!"
+            )
+            return null // Don't fall back to internal storage or
+            // cache bad state if context is missing
+        }
 
         val candidates = mutableListOf<File>()
 
+        // Now safely iterate through volumes with guaranteed context...
         // 1. Any physical SD card visible through the app's external-files-dirs API.
         //    getExternalFilesDirs(null) returns .../Android/data/<pkg>/files on each
         //    mounted volume; walk up to the volume root and apply the relative path.
-        appContext?.getExternalFilesDirs(null)?.forEach { filesDir ->
+        context.getExternalFilesDirs(null)?.reversed()?.forEach { filesDir ->
             var root: File? = filesDir
             repeat(4) { root = root?.parentFile }
             root?.let { candidates.add(File(it, RELATIVE_LOG_PATH)) }
