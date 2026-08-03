@@ -5,8 +5,8 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
-import kotlin.math.cos
-import kotlin.math.sin
+import kotlin.math.sign
+import kotlin.math.sqrt
 
 /**
  * Manages all calibration-mode mathematics and live sensor fusion.
@@ -90,39 +90,63 @@ class CelestialCalibrator : SensorEventListener {
      *
      * The same sighting math works regardless of which body was used to aim the device:
      * the Moon, the Sun (typically sighted just after sunset, near the horizon), or the
-     * planet Venus. Only [trueAzimuth]/[trueAltitude] — the body's computed true
-     * horizontal position at the moment of sighting — differ between bodies; the caller
-     * supplies whichever body's position it looked up (see [CelestialObjectsCalculator]
-     * and [MoonCalculator]).
+     * planet Venus. Only [trueDirection] — the body's computed true position in the world
+     * frame at the moment of sighting, as a unit East/North/Up vector — differs between
+     * bodies; the caller supplies whichever body's position it looked up (see
+     * [CelestialObjectsCalculator] and [MoonCalculator]), with no azimuth/altitude
+     * involved at any point.
      *
      * q_c is derived as:
      *
      *     q_c = q_true ⊗ q_os⁻¹
      *
-     * where q_true is the quaternion for the true azimuth/altitude pose and
-     * q_os⁻¹ = conjugate(q_os) is the inverse of the current raw sensor reading — the
-     * quaternion analogue of the previous `trueRotationMatrix × invertedSensorMatrix`.
+     * where q_true is the quaternion that carries the device's reference forward axis
+     * (0,1,0) onto [trueDirection], and q_os⁻¹ = conjugate(q_os) is the inverse of the
+     * current raw sensor reading — the quaternion analogue of the previous
+     * `trueRotationMatrix × invertedSensorMatrix`.
      *
-     * @param trueAzimuth  True azimuth of the sighted body, in degrees (0° = North).
-     * @param trueAltitude True altitude of the sighted body, in degrees above horizon.
+     * @param trueDirection True position of the sighted body, as a unit ENU
+     *                       (East, North, Up) vector in the world frame.
      * @return The rotation-residual quaternion (q_c) mapping the raw sensor frame to the
      *         true celestial frame. Also stored as [calibrationOffsetQuaternion].
      */
-    fun performCelestialCalibration(trueAzimuth: Float, trueAltitude: Float): Quaternion {
-        // q_true = Q_z(-trueAzimuth) ⊗ Q_x(trueAltitude), matching the previous
-        // Matrix.rotateM(-trueAzimuth, about Z) then Matrix.rotateM(trueAltitude, about X).
-        val halfAzRad = Math.toRadians(-trueAzimuth.toDouble()) / 2.0
-        val halfAltRad = Math.toRadians(trueAltitude.toDouble()) / 2.0
+    fun performCelestialCalibration(trueDirection: MoonCalculator.EnuVector): Quaternion {
+        // q_true = Q_z(-Az) ⊗ Q_x(Alt), same rotation as before, but Az/Alt are never formed
+        // as angles: their half-angle sin/cos are recovered algebraically straight from the
+        // ENU components (Up = sin(Alt); East,North = cos(Alt)*sin(Az), cos(Alt)*cos(Az)).
+        val e = trueDirection.east
+        val n = trueDirection.north
+        val u = trueDirection.up
+
+        val cosAlt = sqrt(e * e + n * n)
+        val sinAlt = u
+
+        val cosAz: Double
+        val sinAz: Double
+        if (cosAlt < 1e-9) {
+            // Body is at zenith/nadir: azimuth is undefined. Matches the previous
+            // atan2(0, 0) = 0 convention.
+            cosAz = 1.0
+            sinAz = 0.0
+        } else {
+            cosAz = n / cosAlt
+            sinAz = e / cosAlt
+        }
+
+        val cosHalfAlt = sqrt((1.0 + cosAlt) / 2.0)
+        val sinHalfAlt = sqrt((1.0 - cosAlt) / 2.0) * sign(sinAlt)
+        val cosHalfAz = sqrt((1.0 + cosAz) / 2.0)
+        val sinHalfAz = sqrt((1.0 - cosAz) / 2.0) * sign(sinAz)
 
         val qz = Quaternion(
-            w = cos(halfAzRad).toFloat(),
+            w = cosHalfAz.toFloat(),
             x = 0f,
             y = 0f,
-            z = sin(halfAzRad).toFloat()
+            z = -sinHalfAz.toFloat()
         )
         val qx = Quaternion(
-            w = cos(halfAltRad).toFloat(),
-            x = sin(halfAltRad).toFloat(),
+            w = cosHalfAlt.toFloat(),
+            x = sinHalfAlt.toFloat(),
             y = 0f,
             z = 0f
         )

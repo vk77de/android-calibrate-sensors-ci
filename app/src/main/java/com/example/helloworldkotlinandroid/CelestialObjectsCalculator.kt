@@ -12,7 +12,6 @@ import kotlin.math.asin
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
-import kotlin.math.tan
 
 object CelestialObjectsCalculator {
     // Throttle so the debug line is written at most once every 2 seconds,
@@ -25,7 +24,7 @@ object CelestialObjectsCalculator {
      * operations.log file used by CalibrationStorageManager, so the planetarium
      * azimuth/altitude bug can be correlated against what is actually rendered.
      */
-    private fun logSunPositionDebug(pos: MoonCalculator.Position) {
+    private fun logSunPositionDebug(pos: MoonCalculator.EnuVector) {
         val now = System.currentTimeMillis()
         if (now - lastSunDebugLogMs < SUN_DEBUG_LOG_INTERVAL_MS) return
         lastSunDebugLogMs = now
@@ -34,10 +33,11 @@ object CelestialObjectsCalculator {
             val dateStr = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())
             val line = String.format(
                 Locale.US,
-                "%s [DEBUG] Sun horizontal coordinates: azimuth=%.2f° altitude=%.2f° ra=%.2f°\n",
+                "%s [DEBUG] Sun ENU coordinates: east=%.4f north=%.4f up=%.4f ra=%.2f°\n",
                 dateStr,
-                pos.azimuth,
-                pos.altitude,
+                pos.east,
+                pos.north,
+                pos.up,
                 pos.ra
             )
 
@@ -54,8 +54,9 @@ object CelestialObjectsCalculator {
 
     data class TargetBody(
         val name: String,
-        val azimuth: Double,
-        val altitude: Double
+        val east: Double,
+        val north: Double,
+        val up: Double
     )
 
     private data class StarData(
@@ -105,7 +106,7 @@ object CelestialObjectsCalculator {
         StarData("Cold Spot Repeller", 48.750, -19.500)
     )
 
-    fun getVenusPosition(lat: Double, lon: Double): MoonCalculator.Position {
+    fun getVenusPosition(lat: Double, lon: Double): MoonCalculator.EnuVector {
         val cal = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
         val timeMs = cal.timeInMillis
 
@@ -122,11 +123,10 @@ object CelestialObjectsCalculator {
         ra = (ra % 360 + 360) % 360
         val dec = -22.0 * cos(Math.toRadians(ra))
 
-        val pos = computeAltAz(ra, dec, lat, lst)
-        return MoonCalculator.Position(pos.azimuth, pos.altitude, ra)
+        return computeEnu(ra, dec, lat, lst)
     }
 
-    fun getSunPosition(lat: Double, lon: Double): MoonCalculator.Position {
+    fun getSunPosition(lat: Double, lon: Double): MoonCalculator.EnuVector {
         val cal = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
         val timeMs = cal.timeInMillis
 
@@ -149,8 +149,7 @@ object CelestialObjectsCalculator {
         ra = (ra % 360 + 360) % 360
         val dec = Math.toDegrees(asin(sin(ecl) * sin(lambdaRad)))
 
-        val pos = computeAltAz(ra, dec, lat, lst)
-        val result = MoonCalculator.Position(pos.azimuth, pos.altitude, ra)
+        val result = computeEnu(ra, dec, lat, lst)
         logSunPositionDebug(result)
         return result
     }
@@ -171,10 +170,10 @@ object CelestialObjectsCalculator {
         val list = mutableListOf<TargetBody>()
 
         val moonPos = MoonCalculator.getPosition(lat, lon)
-        list.add(TargetBody("Moon", moonPos.azimuth, moonPos.altitude))
+        list.add(TargetBody("Moon", moonPos.east, moonPos.north, moonPos.up))
 
         val sunPos = getSunPosition(lat, lon)
-        list.add(TargetBody("Sun", sunPos.azimuth, sunPos.altitude))
+        list.add(TargetBody("Sun", sunPos.east, sunPos.north, sunPos.up))
 
         val planets = listOf(
             Triple(
@@ -200,29 +199,33 @@ object CelestialObjectsCalculator {
         )
 
         for ((name, ra, dec) in planets) {
-            val pos = computeAltAz(ra, dec, lat, lst)
-            list.add(TargetBody(name, pos.azimuth, pos.altitude))
+            val pos = computeEnu(ra, dec, lat, lst)
+            list.add(TargetBody(name, pos.east, pos.north, pos.up))
         }
 
         for (star in StarCatalog) {
-            val pos = computeAltAz(star.ra, star.dec, lat, lst)
-            list.add(TargetBody(star.name, pos.azimuth, pos.altitude))
+            val pos = computeEnu(star.ra, star.dec, lat, lst)
+            list.add(TargetBody(star.name, pos.east, pos.north, pos.up))
         }
 
         for (anomaly in DeepSpaceCatalog) {
-            val pos = computeAltAz(anomaly.ra, anomaly.dec, lat, lst)
-            list.add(TargetBody(anomaly.name, pos.azimuth, pos.altitude))
+            val pos = computeEnu(anomaly.ra, anomaly.dec, lat, lst)
+            list.add(TargetBody(anomaly.name, pos.east, pos.north, pos.up))
         }
 
         return list
     }
 
-    private fun computeAltAz(
+    /**
+     * Converts RA/Dec directly into a unit ENU (East, North, Up) vector — the world-frame
+     * direction to the body — without ever forming azimuth/altitude as intermediate values.
+     */
+    private fun computeEnu(
         ra: Double,
         dec: Double,
         lat: Double,
         lst: Double
-    ): MoonCalculator.Position {
+    ): MoonCalculator.EnuVector {
         var ha = lst - ra
         ha = (ha % 360 + 360) % 360
 
@@ -230,16 +233,10 @@ object CelestialObjectsCalculator {
         val decRad = Math.toRadians(dec)
         val haRad = Math.toRadians(ha)
 
-        val sinAlt = sin(decRad) * sin(latRad) + cos(decRad) * cos(latRad) * cos(haRad)
-        val altRad = asin(sinAlt)
-        val alt = Math.toDegrees(altRad)
+        val east = -cos(decRad) * sin(haRad)
+        val north = sin(decRad) * cos(latRad) - cos(decRad) * sin(latRad) * cos(haRad)
+        val up = sin(decRad) * sin(latRad) + cos(decRad) * cos(latRad) * cos(haRad)
 
-        // Fixed East (yAz) and North (xAz) components
-        val yAz = -sin(haRad)
-        val xAz = tan(decRad) * cos(latRad) - cos(haRad) * sin(latRad)
-        var az = Math.toDegrees(atan2(yAz, xAz))
-        az = (az % 360 + 360) % 360
-
-        return MoonCalculator.Position(azimuth = az, altitude = alt, ra = ra)
+        return MoonCalculator.EnuVector(east = east, north = north, up = up, ra = ra)
     }
 }

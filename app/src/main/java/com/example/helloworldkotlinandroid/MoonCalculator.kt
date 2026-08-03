@@ -7,18 +7,26 @@ import kotlin.math.asin
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
-import kotlin.math.tan
 
 object MoonCalculator {
-    data class Position(val azimuth: Double, val altitude: Double, val ra: Double = Double.NaN)
+    /**
+     * Unit vector in the world frame (East, North, Up) pointing at a celestial body, computed
+     * directly from RA/Dec/observer geometry — no azimuth/altitude intermediate.
+     */
+    data class EnuVector(
+        val east: Double,
+        val north: Double,
+        val up: Double,
+        val ra: Double = Double.NaN
+    )
 
     /**
      * Calculates the topocentric position of the Moon using Meeus-based lunar perturbations.
      * @param lat Device latitude in degrees
      * @param lon Device longitude in degrees
-     * @return Position object containing Azimuth, Altitude, and RA in degrees
+     * @return EnuVector containing the East/North/Up unit vector and RA in degrees
      */
-    fun getPosition(lat: Double, lon: Double): Position {
+    fun getPosition(lat: Double, lon: Double): EnuVector {
         val cal = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
         val timeMs = cal.timeInMillis
 
@@ -85,16 +93,11 @@ object MoonCalculator {
         val decRad = Math.toRadians(dec)
         val haRad = Math.toRadians(ha)
 
-        // Convert to Horizontal Coordinates (Altitude / Azimuth)
-        val sinAlt = sin(latRad) * sin(decRad) + cos(latRad) * cos(decRad) * cos(haRad)
-        val alt = Math.toDegrees(asin(sinAlt))
+        // Direct RA/Dec -> ENU unit vector (East, North, Up); no azimuth/altitude in between.
+        val east = -cos(decRad) * sin(haRad)
+        val north = sin(decRad) * cos(latRad) - cos(decRad) * sin(latRad) * cos(haRad)
+        val up = sin(decRad) * sin(latRad) + cos(decRad) * cos(latRad) * cos(haRad)
 
-        // East (yAz) and North (xAz) components
-        val yAz = -sin(haRad)
-        val xAz = tan(decRad) * cos(latRad) - cos(haRad) * sin(latRad)
-        var az = Math.toDegrees(atan2(yAz, xAz))
-        az = (az % 360 + 360) % 360 // Normalize 0-360 (North = 0, East = 90)
-
-        return Position(azimuth = az, altitude = alt, ra = ra)
+        return EnuVector(east = east, north = north, up = up, ra = ra)
     }
 }
