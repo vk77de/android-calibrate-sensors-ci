@@ -89,8 +89,21 @@ class CalibrationStorageManager(private val context: Context) {
         private const val FILE_NAME = "calibration_data_newest.json"
         private const val ALTERNATE_FILE_NAME = "moon_sensor_calibration.json"
 
+        /** Single Source of Truth for the operations log file name. */
+        const val OPERATIONS_LOG_NAME = "operations.log"
+
         val DATE_FORMATTER: DateTimeFormatter =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
+
+        /** Resolves the operations log [File] within a specific base [logDir]. */
+        fun getOperationsLogFile(logDir: File): File = logDir.resolve(OPERATIONS_LOG_NAME)
+
+        /**
+         * Resolves the active operations log [File] using [OperationsLog.resolveLogDir].
+         * Returns `null` if no writable directory is available.
+         */
+        fun resolveOperationsLogFile(): File? =
+            OperationsLog.resolveLogDir()?.let { getOperationsLogFile(it) }
     }
 
     init {
@@ -205,12 +218,11 @@ class CalibrationStorageManager(private val context: Context) {
             }
             logLineBuilder.append("\n")
 
-            val logDir = OperationsLog.resolveLogDir()
-            if (logDir == null) {
+            val logFile = resolveOperationsLogFile()
+            if (logFile == null) {
                 Log.e(TAG, "Could not resolve a writable operations-log directory; skipping.")
                 return
             }
-            val logFile = File(logDir, "operations.log")
 
             FileWriter(logFile, true).use { writer ->
                 writer.write(logLineBuilder.toString())
@@ -252,7 +264,7 @@ class CalibrationStorageManager(private val context: Context) {
 
         for (fileName in candidateFileNames) {
             for (dir in candidateDirs) {
-                val candidateFile = File(dir, fileName)
+                val candidateFile = dir.resolve(fileName)
                 if (candidateFile.exists() && candidateFile.isFile) {
                     try {
                         val jsonString = candidateFile.readText()
@@ -359,7 +371,7 @@ class CalibrationStorageManager(private val context: Context) {
         val physicalSdCardDir = externalDirs[1]!!
         if (!physicalSdCardDir.exists() && !physicalSdCardDir.mkdirs()) return false
 
-        val targetFile = File(physicalSdCardDir, FILE_NAME)
+        val targetFile = physicalSdCardDir.resolve(FILE_NAME)
         return try {
             FileOutputStream(targetFile).use { output ->
                 output.write(payload.toByteArray())
