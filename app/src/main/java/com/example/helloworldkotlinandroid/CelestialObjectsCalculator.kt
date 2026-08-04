@@ -1,7 +1,6 @@
 // File: ./app/src/main/java/com/example/helloworldkotlinandroid/CelestialObjectsCalculator.kt
 package com.example.helloworldkotlinandroid
 
-import java.io.File
 import java.io.FileWriter
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -20,8 +19,8 @@ object CelestialObjectsCalculator {
     private var lastSunDebugLogMs = 0L
 
     /**
-     * Debug-only: appends the Sun's current horizontal coordinates to the same
-     * operations.log file used by CalibrationStorageManager, so the planetarium
+     * Debug-only: appends the Sun's current horizontal coordinates to the operations log file
+     * resolved via [CalibrationStorageManager.resolveOperationsLogFile], so the planetarium
      * azimuth/altitude bug can be correlated against what is actually rendered.
      */
     private fun logSunPositionDebug(pos: MoonCalculator.EnuVector) {
@@ -41,8 +40,7 @@ object CelestialObjectsCalculator {
                 pos.ra
             )
 
-            val logDir = OperationsLog.resolveLogDir() ?: return
-            val logFile = File(logDir, "operations.log")
+            val logFile = CalibrationStorageManager.resolveOperationsLogFile() ?: return
 
             FileWriter(logFile, true).use { writer ->
                 writer.write(line)
