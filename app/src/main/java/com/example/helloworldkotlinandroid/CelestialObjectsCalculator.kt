@@ -150,7 +150,7 @@ object CelestialObjectsCalculator {
         val dec = Math.toDegrees(asin(sin(ecl) * sin(lambdaRad)))
 
         val result = computeEnu(ra, dec, lat, lst)
-        logSunPositionDebug(result)
+        // logSunPositionDebug(result)
         return result
     }
 
