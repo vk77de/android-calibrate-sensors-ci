@@ -102,7 +102,7 @@ class CalibrationStorageManager(private val context: Context) {
     private fun appendToExternalLog(payload: String, operationNotice: String) {
         try {
             var dateStr: String? = null
-            var payloadDateStr
+            var payloadDateStr: String? = null
             val pseudoJsonParts = mutableListOf<String>()
 
             try {
