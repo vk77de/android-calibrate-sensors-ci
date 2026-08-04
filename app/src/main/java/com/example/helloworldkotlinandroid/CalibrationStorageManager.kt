@@ -102,6 +102,7 @@ class CalibrationStorageManager(private val context: Context) {
     private fun appendToExternalLog(payload: String, operationNotice: String) {
         try {
             var dateStr: String? = null
+            var payloadDateStr
             val pseudoJsonParts = mutableListOf<String>()
 
             try {
@@ -110,14 +111,14 @@ class CalibrationStorageManager(private val context: Context) {
                 if (jsonObject.has("date_time_stamp")) {
                     val dt = jsonObject.optString("date_time_stamp")
                     if (dt.isNotBlank() && dt != "N/A") {
-                        dateStr = dt
+                        payloadDateStr = dt
                     }
                 }
                 if (dateStr == null && jsonObject.has("timestamp")) {
                     val ts = jsonObject.optLong("timestamp", 0L)
                     if (ts > 0) {
                         val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
-                        dateStr = sdf.format(Date(ts))
+                        payloadDateStr = sdf.format(Date(ts))
                     }
                 }
 
